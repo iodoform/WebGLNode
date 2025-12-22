@@ -1,0 +1,123 @@
+[
+  {
+    "id": "color_rgb",
+    "name": "Color",
+    "category": "Color",
+    "description": "Pick a color using color picker",
+    "color": "#ffcc00",
+    "customUI": "colorPicker",
+    "inputs": [],
+    "outputs": [
+      { "name": "Color", "type": "color" }
+    ],
+    "code": ""
+  },
+  {
+    "id": "color_hsv_to_rgb",
+    "name": "HSV to RGB",
+    "category": "Color",
+    "description": "Convert HSV color to RGB",
+    "color": "#ffcc00",
+    "inputs": [
+      { "name": "H", "type": "float", "default": 0 },
+      { "name": "S", "type": "float", "default": 1 },
+      { "name": "V", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "RGB", "type": "color" }
+    ],
+    "code": "fn node_{{id}}(h: f32, s: f32, v: f32) -> vec3f {\n  let c = v * s;\n  let x = c * (1.0 - abs(((h * 6.0) % 2.0) - 1.0));\n  let m = v - c;\n  var rgb: vec3f;\n  let hp = h * 6.0;\n  if (hp < 1.0) { rgb = vec3f(c, x, 0.0); }\n  else if (hp < 2.0) { rgb = vec3f(x, c, 0.0); }\n  else if (hp < 3.0) { rgb = vec3f(0.0, c, x); }\n  else if (hp < 4.0) { rgb = vec3f(0.0, x, c); }\n  else if (hp < 5.0) { rgb = vec3f(x, 0.0, c); }\n  else { rgb = vec3f(c, 0.0, x); }\n  return rgb + vec3f(m); \n}"
+  },
+  {
+    "id": "color_mix",
+    "name": "Mix Colors",
+    "category": "Color",
+    "description": "Mix two colors",
+    "color": "#10b981",
+    "inputs": [
+      { "name": "A", "type": "color", "default": [0, 0, 0] },
+      { "name": "B", "type": "color", "default": [1, 1, 1] },
+      { "name": "Factor", "type": "float", "default": 0.5 }
+    ],
+    "outputs": [
+      { "name": "Color", "type": "color" }
+    ],
+    "code": "fn node_{{id}}(a: vec3f, b: vec3f, t: f32) -> vec3f { return mix(a, b, t); }"
+  },
+  {
+    "id": "color_separate",
+    "name": "Separate RGB",
+    "category": "Color",
+    "description": "Separate color into R, G, B components",
+    "color": "#ffcc00",
+    "inputs": [
+      { "name": "Color", "type": "color", "default": [1, 1, 1] }
+    ],
+    "outputs": [
+      { "name": "R", "type": "float" },
+      { "name": "G", "type": "float" },
+      { "name": "B", "type": "float" }
+    ],
+    "code": "fn node_{{id}}_r(c: vec3f) -> f32 { return c.r; }\nfn node_{{id}}_g(c: vec3f) -> f32 { return c.g; }\nfn node_{{id}}_b(c: vec3f) -> f32 { return c.b; }"
+  },
+  {
+    "id": "color_brightness",
+    "name": "Brightness",
+    "category": "Color",
+    "description": "Adjust color brightness",
+    "color": "#ffcc00",
+    "inputs": [
+      { "name": "Color", "type": "color", "default": [1, 1, 1] },
+      { "name": "Brightness", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Color", "type": "color" }
+    ],
+    "code": "fn node_{{id}}(c: vec3f, b: f32) -> vec3f { return c + vec3f(b); }"
+  },
+  {
+    "id": "color_contrast",
+    "name": "Contrast",
+    "category": "Color",
+    "description": "Adjust color contrast",
+    "color": "#ffcc00",
+    "inputs": [
+      { "name": "Color", "type": "color", "default": [0.5, 0.5, 0.5] },
+      { "name": "Contrast", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Color", "type": "color" }
+    ],
+    "code": "fn node_{{id}}(c: vec3f, contrast: f32) -> vec3f { return (c - 0.5) * contrast + 0.5; }"
+  },
+  {
+    "id": "color_gamma",
+    "name": "Gamma",
+    "category": "Color",
+    "description": "Apply gamma correction",
+    "color": "#ffcc00",
+    "inputs": [
+      { "name": "Color", "type": "color", "default": [0.5, 0.5, 0.5] },
+      { "name": "Gamma", "type": "float", "default": 2.2 }
+    ],
+    "outputs": [
+      { "name": "Color", "type": "color" }
+    ],
+    "code": "fn node_{{id}}(c: vec3f, gamma: f32) -> vec3f { return pow(max(c, vec3f(0.0)), vec3f(1.0 / gamma)); }"
+  },
+  {
+    "id": "color_invert",
+    "name": "Invert",
+    "category": "Color",
+    "description": "Invert color",
+    "color": "#ffcc00",
+    "inputs": [
+      { "name": "Color", "type": "color", "default": [0.5, 0.5, 0.5] }
+    ],
+    "outputs": [
+      { "name": "Color", "type": "color" }
+    ],
+    "code": "fn node_{{id}}(c: vec3f) -> vec3f { return vec3f(1.0) - c; }"
+  }
+]
+

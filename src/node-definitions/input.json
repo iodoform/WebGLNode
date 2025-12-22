@@ -1,0 +1,104 @@
+[
+  {
+    "id": "input_uv",
+    "name": "UV Coordinates",
+    "category": "Input",
+    "description": "Fragment UV coordinates (0-1)",
+    "color": "#ef4444",
+    "inputs": [],
+    "outputs": [
+      { "name": "UV", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}() -> vec2f { return uv; }"
+  },
+  {
+    "id": "input_time",
+    "name": "Time",
+    "category": "Input",
+    "description": "Elapsed time in seconds",
+    "color": "#ef4444",
+    "inputs": [],
+    "outputs": [
+      { "name": "Time", "type": "float" }
+    ],
+    "code": "fn node_{{id}}() -> f32 { return uniforms.time; }"
+  },
+  {
+    "id": "input_resolution",
+    "name": "Resolution",
+    "category": "Input",
+    "description": "Canvas resolution in pixels",
+    "color": "#ef4444",
+    "inputs": [],
+    "outputs": [
+      { "name": "Resolution", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}() -> vec2f { return uniforms.resolution; }"
+  },
+  {
+    "id": "input_mouse",
+    "name": "Mouse Position",
+    "category": "Input",
+    "description": "Normalized mouse position (0-1)",
+    "color": "#ef4444",
+    "inputs": [],
+    "outputs": [
+      { "name": "Position", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}() -> vec2f { return uniforms.mouse; }"
+  },
+  {
+    "id": "input_value",
+    "name": "Value",
+    "category": "Input",
+    "description": "A constant float value",
+    "color": "#f59e0b",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return v; }"
+  },
+  {
+    "id": "input_vec2",
+    "name": "Vector 2D",
+    "category": "Input",
+    "description": "A constant vec2 value",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "X", "type": "float", "default": 0 },
+      { "name": "Y", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Vector", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }"
+  },
+  {
+    "id": "input_pi",
+    "name": "PI",
+    "category": "Input",
+    "description": "Mathematical constant PI",
+    "color": "#8b5cf6",
+    "inputs": [],
+    "outputs": [
+      { "name": "PI", "type": "float" }
+    ],
+    "code": "fn node_{{id}}() -> f32 { return 3.14159265359; }"
+  },
+  {
+    "id": "input_tau",
+    "name": "TAU",
+    "category": "Input",
+    "description": "Mathematical constant TAU (2*PI)",
+    "color": "#8b5cf6",
+    "inputs": [],
+    "outputs": [
+      { "name": "TAU", "type": "float" }
+    ],
+    "code": "fn node_{{id}}() -> f32 { return 6.28318530718; }"
+  }
+]
+

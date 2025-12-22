@@ -1,0 +1,269 @@
+[
+  {
+    "id": "math_add",
+    "name": "Add",
+    "category": "Math",
+    "description": "Add two values together",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "A", "type": "float", "default": 0 },
+      { "name": "B", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a + b; }"
+  },
+  {
+    "id": "math_subtract",
+    "name": "Subtract",
+    "category": "Math",
+    "description": "Subtract B from A",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "A", "type": "float", "default": 0 },
+      { "name": "B", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a - b; }"
+  },
+  {
+    "id": "math_multiply",
+    "name": "Multiply",
+    "category": "Math",
+    "description": "Multiply two values",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "A", "type": "float", "default": 1 },
+      { "name": "B", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a * b; }"
+  },
+  {
+    "id": "math_divide",
+    "name": "Divide",
+    "category": "Math",
+    "description": "Divide A by B",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "A", "type": "float", "default": 1 },
+      { "name": "B", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a / max(b, 0.0001); }"
+  },
+  {
+    "id": "math_sin",
+    "name": "Sine",
+    "category": "Math",
+    "description": "Sine of the input value",
+    "color": "#8b5cf6",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return sin(v); }"
+  },
+  {
+    "id": "math_cos",
+    "name": "Cosine",
+    "category": "Math",
+    "description": "Cosine of the input value",
+    "color": "#8b5cf6",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return cos(v); }"
+  },
+  {
+    "id": "math_abs",
+    "name": "Absolute",
+    "category": "Math",
+    "description": "Absolute value",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return abs(v); }"
+  },
+  {
+    "id": "math_fract",
+    "name": "Fraction",
+    "category": "Math",
+    "description": "Fractional part of the value",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return fract(v); }"
+  },
+  {
+    "id": "math_floor",
+    "name": "Floor",
+    "category": "Math",
+    "description": "Floor of the value",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return floor(v); }"
+  },
+  {
+    "id": "math_ceil",
+    "name": "Ceil",
+    "category": "Math",
+    "description": "Ceiling of the value",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return ceil(v); }"
+  },
+  {
+    "id": "math_pow",
+    "name": "Power",
+    "category": "Math",
+    "description": "Base raised to exponent",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Base", "type": "float", "default": 2 },
+      { "name": "Exponent", "type": "float", "default": 2 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(base: f32, exp: f32) -> f32 { return pow(abs(base), exp); }"
+  },
+  {
+    "id": "math_sqrt",
+    "name": "Square Root",
+    "category": "Math",
+    "description": "Square root of the value",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32) -> f32 { return sqrt(max(v, 0.0)); }"
+  },
+  {
+    "id": "math_mix",
+    "name": "Mix",
+    "category": "Math",
+    "description": "Linear interpolation between A and B",
+    "color": "#10b981",
+    "inputs": [
+      { "name": "A", "type": "float", "default": 0 },
+      { "name": "B", "type": "float", "default": 1 },
+      { "name": "Factor", "type": "float", "default": 0.5 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: f32, b: f32, t: f32) -> f32 { return mix(a, b, t); }"
+  },
+  {
+    "id": "math_clamp",
+    "name": "Clamp",
+    "category": "Math",
+    "description": "Clamp value between min and max",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Value", "type": "float", "default": 0 },
+      { "name": "Min", "type": "float", "default": 0 },
+      { "name": "Max", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: f32, minVal: f32, maxVal: f32) -> f32 { return clamp(v, minVal, maxVal); }"
+  },
+  {
+    "id": "math_smoothstep",
+    "name": "Smoothstep",
+    "category": "Math",
+    "description": "Smooth Hermite interpolation",
+    "color": "#10b981",
+    "inputs": [
+      { "name": "Edge0", "type": "float", "default": 0 },
+      { "name": "Edge1", "type": "float", "default": 1 },
+      { "name": "X", "type": "float", "default": 0.5 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(edge0: f32, edge1: f32, x: f32) -> f32 { return smoothstep(edge0, edge1, x); }"
+  },
+  {
+    "id": "math_step",
+    "name": "Step",
+    "category": "Math",
+    "description": "Step function (0 if x < edge, 1 otherwise)",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "Edge", "type": "float", "default": 0.5 },
+      { "name": "X", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(edge: f32, x: f32) -> f32 { return step(edge, x); }"
+  },
+  {
+    "id": "math_mod",
+    "name": "Modulo",
+    "category": "Math",
+    "description": "Floating point modulo",
+    "color": "#6b7280",
+    "inputs": [
+      { "name": "A", "type": "float", "default": 0 },
+      { "name": "B", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a - b * floor(a / max(b, 0.0001)); }"
+  },
+  {
+    "id": "math_atan2",
+    "name": "Atan2",
+    "category": "Math",
+    "description": "Two-argument arctangent",
+    "color": "#8b5cf6",
+    "inputs": [
+      { "name": "Y", "type": "float", "default": 0 },
+      { "name": "X", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(y: f32, x: f32) -> f32 { return atan2(y, x); }"
+  }
+]
+

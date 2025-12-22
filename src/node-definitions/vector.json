@@ -1,0 +1,216 @@
+[
+  {
+    "id": "vec_combine2",
+    "name": "Combine XY",
+    "category": "Vector",
+    "description": "Combine two floats into a vec2",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "X", "type": "float", "default": 0 },
+      { "name": "Y", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Vector", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }"
+  },
+  {
+    "id": "vec_combine3",
+    "name": "Combine XYZ",
+    "category": "Vector",
+    "description": "Combine three floats into a vec3",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "X", "type": "float", "default": 0 },
+      { "name": "Y", "type": "float", "default": 0 },
+      { "name": "Z", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Vector", "type": "vec3" }
+    ],
+    "code": "fn node_{{id}}(x: f32, y: f32, z: f32) -> vec3f { return vec3f(x, y, z); }"
+  },
+  {
+    "id": "vec_combine4",
+    "name": "Combine XYZW",
+    "category": "Vector",
+    "description": "Combine four floats into a vec4",
+    "color": "#cc63ff",
+    "inputs": [
+      { "name": "X", "type": "float", "default": 0 },
+      { "name": "Y", "type": "float", "default": 0 },
+      { "name": "Z", "type": "float", "default": 0 },
+      { "name": "W", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Vector", "type": "vec4" }
+    ],
+    "code": "fn node_{{id}}(x: f32, y: f32, z: f32, w: f32) -> vec4f { return vec4f(x, y, z, w); }"
+  },
+  {
+    "id": "vec_separate2",
+    "name": "Separate XY",
+    "category": "Vector",
+    "description": "Separate a vec2 into components",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec2", "default": [0, 0] }
+    ],
+    "outputs": [
+      { "name": "X", "type": "float" },
+      { "name": "Y", "type": "float" }
+    ],
+    "code": "fn node_{{id}}_x(v: vec2f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec2f) -> f32 { return v.y; }"
+  },
+  {
+    "id": "vec_separate3",
+    "name": "Separate XYZ",
+    "category": "Vector",
+    "description": "Separate a vec3 into components",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec3", "default": [0, 0, 0] }
+    ],
+    "outputs": [
+      { "name": "X", "type": "float" },
+      { "name": "Y", "type": "float" },
+      { "name": "Z", "type": "float" }
+    ],
+    "code": "fn node_{{id}}_x(v: vec3f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec3f) -> f32 { return v.y; }\nfn node_{{id}}_z(v: vec3f) -> f32 { return v.z; }"
+  },
+  {
+    "id": "vec_length",
+    "name": "Length",
+    "category": "Vector",
+    "description": "Length of a vector",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec2", "default": [0, 0] }
+    ],
+    "outputs": [
+      { "name": "Length", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(v: vec2f) -> f32 { return length(v); }"
+  },
+  {
+    "id": "vec_normalize",
+    "name": "Normalize",
+    "category": "Vector",
+    "description": "Normalize a vector",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec2", "default": [1, 0] }
+    ],
+    "outputs": [
+      { "name": "Normalized", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(v: vec2f) -> vec2f { return normalize(v); }"
+  },
+  {
+    "id": "vec_dot",
+    "name": "Dot Product",
+    "category": "Vector",
+    "description": "Dot product of two vectors",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "A", "type": "vec2", "default": [1, 0] },
+      { "name": "B", "type": "vec2", "default": [0, 1] }
+    ],
+    "outputs": [
+      { "name": "Dot", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> f32 { return dot(a, b); }"
+  },
+  {
+    "id": "vec_distance",
+    "name": "Distance",
+    "category": "Vector",
+    "description": "Distance between two points",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "A", "type": "vec2", "default": [0, 0] },
+      { "name": "B", "type": "vec2", "default": [1, 1] }
+    ],
+    "outputs": [
+      { "name": "Distance", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> f32 { return distance(a, b); }"
+  },
+  {
+    "id": "vec_reflect",
+    "name": "Reflect",
+    "category": "Vector",
+    "description": "Reflect vector around normal",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec2", "default": [1, -1] },
+      { "name": "Normal", "type": "vec2", "default": [0, 1] }
+    ],
+    "outputs": [
+      { "name": "Reflected", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(v: vec2f, n: vec2f) -> vec2f { return reflect(v, normalize(n)); }"
+  },
+  {
+    "id": "vec_add",
+    "name": "Add Vectors",
+    "category": "Vector",
+    "description": "Add two vec2 vectors",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "A", "type": "vec2", "default": [0, 0] },
+      { "name": "B", "type": "vec2", "default": [0, 0] }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> vec2f { return a + b; }"
+  },
+  {
+    "id": "vec_multiply",
+    "name": "Multiply Vectors",
+    "category": "Vector",
+    "description": "Multiply two vec2 vectors",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "A", "type": "vec2", "default": [1, 1] },
+      { "name": "B", "type": "vec2", "default": [1, 1] }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> vec2f { return a * b; }"
+  },
+  {
+    "id": "vec_scale",
+    "name": "Scale Vector",
+    "category": "Vector",
+    "description": "Scale a vector by a scalar",
+    "color": "#63c7ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec2", "default": [1, 1] },
+      { "name": "Scale", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(v: vec2f, s: f32) -> vec2f { return v * s; }"
+  },
+  {
+    "id": "vec_mix",
+    "name": "Mix Vectors",
+    "category": "Vector",
+    "description": "Linear interpolation between two vectors",
+    "color": "#10b981",
+    "inputs": [
+      { "name": "A", "type": "vec2", "default": [0, 0] },
+      { "name": "B", "type": "vec2", "default": [1, 1] },
+      { "name": "Factor", "type": "float", "default": 0.5 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec2" }
+    ],
+    "code": "fn node_{{id}}(a: vec2f, b: vec2f, t: f32) -> vec2f { return mix(a, b, t); }"
+  }
+]
+

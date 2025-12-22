@@ -1,0 +1,145 @@
+[
+  {
+    "id": "pattern_checker",
+    "name": "Checker",
+    "category": "Pattern",
+    "description": "Checkerboard pattern",
+    "color": "#06b6d4",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0, 0] },
+      { "name": "Scale", "type": "float", "default": 8 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, scale: f32) -> f32 {\n  let p = floor(uv * scale);\n  return (p.x + p.y) % 2.0;\n}"
+  },
+  {
+    "id": "pattern_gradient",
+    "name": "Gradient",
+    "category": "Pattern",
+    "description": "Linear gradient",
+    "color": "#06b6d4",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0, 0] },
+      { "name": "Angle", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, angle: f32) -> f32 {\n  let dir = vec2f(cos(angle), sin(angle));\n  return dot(uv - 0.5, dir) + 0.5;\n}"
+  },
+  {
+    "id": "pattern_radial",
+    "name": "Radial Gradient",
+    "category": "Pattern",
+    "description": "Radial gradient from center",
+    "color": "#06b6d4",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0.5, 0.5] },
+      { "name": "Center", "type": "vec2", "default": [0.5, 0.5] }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, center: vec2f) -> f32 {\n  return length(uv - center);\n}"
+  },
+  {
+    "id": "pattern_circle",
+    "name": "Circle",
+    "category": "Pattern",
+    "description": "Circle shape",
+    "color": "#06b6d4",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0.5, 0.5] },
+      { "name": "Center", "type": "vec2", "default": [0.5, 0.5] },
+      { "name": "Radius", "type": "float", "default": 0.25 },
+      { "name": "Softness", "type": "float", "default": 0.01 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, center: vec2f, radius: f32, softness: f32) -> f32 {\n  let d = length(uv - center);\n  return 1.0 - smoothstep(radius - softness, radius + softness, d);\n}"
+  },
+  {
+    "id": "pattern_box",
+    "name": "Box",
+    "category": "Pattern",
+    "description": "Box/Rectangle shape",
+    "color": "#06b6d4",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0.5, 0.5] },
+      { "name": "Center", "type": "vec2", "default": [0.5, 0.5] },
+      { "name": "Size", "type": "vec2", "default": [0.5, 0.5] },
+      { "name": "Softness", "type": "float", "default": 0.01 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, center: vec2f, size: vec2f, softness: f32) -> f32 {\n  let p = abs(uv - center);\n  let d = max(p.x - size.x * 0.5, p.y - size.y * 0.5);\n  return 1.0 - smoothstep(-softness, softness, d);\n}"
+  },
+  {
+    "id": "pattern_stripe",
+    "name": "Stripe",
+    "category": "Pattern",
+    "description": "Stripe pattern",
+    "color": "#06b6d4",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0, 0] },
+      { "name": "Scale", "type": "float", "default": 10 },
+      { "name": "Angle", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, scale: f32, angle: f32) -> f32 {\n  let dir = vec2f(cos(angle), sin(angle));\n  return step(0.5, fract(dot(uv, dir) * scale));\n}"
+  },
+  {
+    "id": "pattern_noise_simple",
+    "name": "Simple Noise",
+    "category": "Pattern",
+    "description": "Simple pseudo-random noise",
+    "color": "#a855f7",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0, 0] },
+      { "name": "Scale", "type": "float", "default": 10 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn node_{{id}}(uv: vec2f, scale: f32) -> f32 {\n  let p = uv * scale;\n  return fract(sin(dot(p, vec2f(12.9898, 78.233))) * 43758.5453);\n}"
+  },
+  {
+    "id": "pattern_voronoi",
+    "name": "Voronoi",
+    "category": "Pattern",
+    "description": "Voronoi/Worley noise pattern",
+    "color": "#a855f7",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0, 0] },
+      { "name": "Scale", "type": "float", "default": 5 }
+    ],
+    "outputs": [
+      { "name": "Distance", "type": "float" },
+      { "name": "Cell", "type": "float" }
+    ],
+    "code": "fn hash22_{{id}}(p: vec2f) -> vec2f {\n  let p3 = fract(vec3f(p.xyx) * vec3f(.1031, .1030, .0973));\n  let p3dot = p3 + vec3f(dot(p3, p3.yzx + 33.33));\n  return fract((p3dot.xx + p3dot.yz) * p3dot.zy);\n}\nfn node_{{id}}_distance(uv: vec2f, scale: f32) -> f32 {\n  let p = uv * scale;\n  let i = floor(p);\n  let f = fract(p);\n  var minDist = 1.0;\n  for (var y = -1; y <= 1; y++) {\n    for (var x = -1; x <= 1; x++) {\n      let neighbor = vec2f(f32(x), f32(y));\n      let point = hash22_{{id}}(i + neighbor);\n      let d = length(neighbor + point - f);\n      minDist = min(minDist, d);\n    }\n  }\n  return minDist;\n}\nfn node_{{id}}_cell(uv: vec2f, scale: f32) -> f32 {\n  let p = uv * scale;\n  let i = floor(p);\n  let f = fract(p);\n  var minDist = 1.0;\n  var cellId = 0.0;\n  for (var y = -1; y <= 1; y++) {\n    for (var x = -1; x <= 1; x++) {\n      let neighbor = vec2f(f32(x), f32(y));\n      let cell = i + neighbor;\n      let point = hash22_{{id}}(cell);\n      let d = length(neighbor + point - f);\n      if (d < minDist) {\n        minDist = d;\n        cellId = fract(sin(dot(cell, vec2f(12.9898, 78.233))) * 43758.5453);\n      }\n    }\n  }\n  return cellId;\n}"
+  },
+  {
+    "id": "pattern_fbm",
+    "name": "FBM Noise",
+    "category": "Pattern",
+    "description": "Fractal Brownian Motion noise",
+    "color": "#a855f7",
+    "inputs": [
+      { "name": "UV", "type": "vec2", "default": [0, 0] },
+      { "name": "Scale", "type": "float", "default": 5 },
+      { "name": "Octaves", "type": "float", "default": 4 }
+    ],
+    "outputs": [
+      { "name": "Value", "type": "float" }
+    ],
+    "code": "fn hash2d_{{id}}(p: vec2f) -> f32 {\n  return fract(sin(dot(p, vec2f(12.9898, 78.233))) * 43758.5453);\n}\nfn noise2d_{{id}}(p: vec2f) -> f32 {\n  let i = floor(p);\n  let f = fract(p);\n  let u = f * f * (3.0 - 2.0 * f);\n  return mix(\n    mix(hash2d_{{id}}(i), hash2d_{{id}}(i + vec2f(1.0, 0.0)), u.x),\n    mix(hash2d_{{id}}(i + vec2f(0.0, 1.0)), hash2d_{{id}}(i + vec2f(1.0, 1.0)), u.x),\n    u.y\n  );\n}\nfn node_{{id}}(uv: vec2f, scale: f32, octaves: f32) -> f32 {\n  var p = uv * scale;\n  var value = 0.0;\n  var amplitude = 0.5;\n  var freq = 1.0;\n  let oct = i32(clamp(octaves, 1.0, 8.0));\n  for (var i = 0; i < oct; i++) {\n    value += amplitude * noise2d_{{id}}(p * freq);\n    amplitude *= 0.5;\n    freq *= 2.0;\n  }\n  return value;\n}"
+  }
+]
+
