@@ -11,6 +11,7 @@ export class NodeEditor {
   private state: EditorState;
   private dragState: DragState;
   private connectionDrag: ConnectionDragState;
+  private selectedConnectionId: string | null = null;
   
   private addNodeMenu: HTMLElement | null = null;
   private onShaderUpdate?: (code: string) => void;
@@ -82,6 +83,13 @@ export class NodeEditor {
   private handlePanStart(e: MouseEvent): void {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest('.node')) return;
+    if ((e.target as HTMLElement).closest('.connection')) return;
+
+    // Clear connection selection when clicking on background
+    if (this.selectedConnectionId) {
+      this.selectedConnectionId = null;
+      this.updateConnectionSelection();
+    }
 
     this.dragState = {
       isDragging: true,
@@ -113,9 +121,9 @@ export class NodeEditor {
         this.updateConnections();
       }
     } else if (this.connectionDrag.isConnecting) {
-      const rect = this.container.getBoundingClientRect();
-      this.connectionDrag.currentX = (e.clientX - rect.left - this.state.pan.x) / this.state.zoom;
-      this.connectionDrag.currentY = (e.clientY - rect.top - this.state.pan.y) / this.state.zoom;
+      const svgRect = this.svgContainer.getBoundingClientRect();
+      this.connectionDrag.currentX = (e.clientX - svgRect.left) / this.state.zoom;
+      this.connectionDrag.currentY = (e.clientY - svgRect.top) / this.state.zoom;
       this.updateConnectionPreview();
     }
   }
@@ -165,7 +173,13 @@ export class NodeEditor {
 
   private handleKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Delete' || e.key === 'Backspace') {
-      this.deleteSelectedNodes();
+      // Delete selected connection if one is selected
+      if (this.selectedConnectionId) {
+        this.deleteConnection(this.selectedConnectionId);
+        this.selectedConnectionId = null;
+      } else {
+        this.deleteSelectedNodes();
+      }
     } else if (e.key === 'a' && e.shiftKey) {
       e.preventDefault();
       const rect = this.container.getBoundingClientRect();
@@ -326,33 +340,47 @@ export class NodeEditor {
       
       content.appendChild(colorRow);
     } else {
-      // Render sockets
-      const maxSockets = Math.max(node.inputs.length, node.outputs.length);
-      for (let i = 0; i < maxSockets; i++) {
-        const input = node.inputs[i];
-        const output = node.outputs[i];
+      // Create two-column layout: inputs (left) and outputs (right)
+      const columnsContainer = document.createElement('div');
+      columnsContainer.className = 'node-columns-container';
+      
+      // Left column: inputs
+      const inputColumn = document.createElement('div');
+      inputColumn.className = 'node-input-column';
+      
+      for (const input of node.inputs) {
+        const inputRow = document.createElement('div');
+        inputRow.className = 'node-input-row';
         
-        const row = document.createElement('div');
-        row.className = 'node-row';
+        // Socket + label
+        const socketWrapper = this.createSocket(input, node);
+        inputRow.appendChild(socketWrapper);
         
-        if (input && output) {
-          row.appendChild(this.createSocket(input, node));
-          row.appendChild(this.createSocket(output, node));
-        } else if (input) {
-          row.classList.add('input-only');
-          row.appendChild(this.createSocket(input, node));
-          
-          // Add input field if not connected
-          if (!this.isSocketConnected(input.id)) {
-            row.appendChild(this.createInputField(input, node));
-          }
-        } else if (output) {
-          row.classList.add('output-only');
-          row.appendChild(this.createSocket(output, node));
+        // Input field or spacer (always present for alignment)
+        const rightSide = document.createElement('div');
+        rightSide.className = 'node-input-right-side';
+        if (!this.isSocketConnected(input.id)) {
+          rightSide.appendChild(this.createInputField(input, node));
         }
+        inputRow.appendChild(rightSide);
         
-        content.appendChild(row);
+        inputColumn.appendChild(inputRow);
       }
+      
+      // Right column: outputs
+      const outputColumn = document.createElement('div');
+      outputColumn.className = 'node-output-column';
+      
+      for (const output of node.outputs) {
+        const outputRow = document.createElement('div');
+        outputRow.className = 'node-output-row';
+        outputRow.appendChild(this.createSocket(output, node));
+        outputColumn.appendChild(outputRow);
+      }
+      
+      columnsContainer.appendChild(inputColumn);
+      columnsContainer.appendChild(outputColumn);
+      content.appendChild(columnsContainer);
     }
 
     nodeEl.appendChild(content);
@@ -373,8 +401,7 @@ export class NodeEditor {
 
   private createSocket(socket: Socket, node: Node): HTMLElement {
     const wrapper = document.createElement('div');
-    wrapper.style.display = 'flex';
-    wrapper.style.alignItems = 'center';
+    wrapper.className = 'socket-wrapper';
     
     const socketEl = document.createElement('div');
     socketEl.className = `socket socket-${socket.direction}`;
@@ -389,13 +416,25 @@ export class NodeEditor {
 
     socketEl.addEventListener('mousedown', (e) => {
       e.stopPropagation();
-      this.startConnectionDrag(socket, e);
+      
+      // If clicking on an input socket that already has a connection, disconnect it
+      if (socket.direction === 'input' && this.isSocketConnected(socket.id)) {
+        this.disconnectSocket(socket.id);
+        // Prevent starting a new connection drag
+        return;
+      }
+      
+      this.startConnectionDrag(socket);
     });
 
     socketEl.addEventListener('mouseup', (e) => {
       e.stopPropagation();
+      // Only create connection if we're actually connecting (not just disconnecting)
       if (this.connectionDrag.isConnecting && this.connectionDrag.fromSocket) {
-        this.createConnection(this.connectionDrag.fromSocket, socket);
+        // Don't create connection if clicking on the same socket we started from
+        if (this.connectionDrag.fromSocket.id !== socket.id) {
+          this.createConnection(this.connectionDrag.fromSocket, socket);
+        }
         this.connectionDrag.isConnecting = false;
         this.removeConnectionPreview();
       }
@@ -539,7 +578,7 @@ export class NodeEditor {
     }
   }
 
-  private startConnectionDrag(socket: Socket, e: MouseEvent): void {
+  private startConnectionDrag(socket: Socket): void {
     this.connectionDrag = {
       isConnecting: true,
       fromSocket: socket,
@@ -588,6 +627,7 @@ export class NodeEditor {
     this.updateConnections();
     this.updateSocketDisplay(outputSocket.id, true);
     this.updateSocketDisplay(inputSocket.id, true);
+    this.updateNodeInputFields(inputSocket.nodeId);
     this.triggerShaderUpdate();
   }
 
@@ -612,6 +652,39 @@ export class NodeEditor {
     if (socketEl) {
       socketEl.classList.toggle('connected', connected);
     }
+  }
+
+  private updateNodeInputFields(nodeId: string): void {
+    const node = this.state.nodes.get(nodeId);
+    if (!node) return;
+
+    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeId}"]`);
+    if (!nodeEl) return;
+
+    // Find all input rows and update their input fields
+    const inputRows = nodeEl.querySelectorAll('.node-input-row');
+    inputRows.forEach((row, index) => {
+      const input = node.inputs[index];
+      if (!input) return;
+
+      const rightSide = row.querySelector('.node-input-right-side');
+      if (!rightSide) return;
+
+      // Remove existing input field
+      const existingInput = rightSide.querySelector('.node-input-field, .node-color-input-wrapper');
+      if (existingInput) {
+        existingInput.remove();
+      }
+
+      // Add input field if not connected
+      if (!this.isSocketConnected(input.id)) {
+        if (input.type === 'color') {
+          rightSide.appendChild(this.createColorInput(input, node));
+        } else {
+          rightSide.appendChild(this.createInputField(input, node));
+        }
+      }
+    });
   }
 
   private getSocketAtPosition(x: number, y: number): Socket | undefined {
@@ -640,6 +713,47 @@ export class NodeEditor {
     for (const connection of this.state.connections.values()) {
       this.renderConnection(connection);
     }
+    
+    this.updateConnectionSelection();
+  }
+  
+  private updateConnectionSelection(): void {
+    const paths = this.svgContainer.querySelectorAll('.connection');
+    paths.forEach((path) => {
+      const connectionId = path.getAttribute('data-connection-id');
+      path.classList.toggle('selected', connectionId === this.selectedConnectionId);
+    });
+  }
+  
+  private disconnectSocket(socketId: string): void {
+    for (const [id, conn] of this.state.connections) {
+      if (conn.fromSocketId === socketId || conn.toSocketId === socketId) {
+        this.deleteConnection(id);
+        break; // Only disconnect one connection per socket
+      }
+    }
+  }
+  
+  private deleteConnection(connectionId: string): void {
+    const connection = this.state.connections.get(connectionId);
+    if (!connection) return;
+    
+    this.state.connections.delete(connectionId);
+    this.updateConnections();
+    this.updateSocketDisplay(connection.fromSocketId, this.isSocketConnected(connection.fromSocketId));
+    this.updateSocketDisplay(connection.toSocketId, this.isSocketConnected(connection.toSocketId));
+    
+    // Update input fields for the node that had the input connection
+    const toNode = this.state.nodes.get(connection.toNodeId);
+    if (toNode) {
+      this.updateNodeInputFields(toNode.id);
+    }
+    
+    this.triggerShaderUpdate();
+    
+    if (this.selectedConnectionId === connectionId) {
+      this.selectedConnectionId = null;
+    }
   }
 
   private renderConnection(connection: Connection): void {
@@ -654,33 +768,48 @@ export class NodeEditor {
 
     const fromRect = fromEl.getBoundingClientRect();
     const toRect = toEl.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
+    const svgRect = this.svgContainer.getBoundingClientRect();
 
-    // Convert screen coordinates to local SVG coordinates
-    const x1 = (fromRect.left + fromRect.width / 2 - containerRect.left - this.state.pan.x) / this.state.zoom;
-    const y1 = (fromRect.top + fromRect.height / 2 - containerRect.top - this.state.pan.y) / this.state.zoom;
-    const x2 = (toRect.left + toRect.width / 2 - containerRect.left - this.state.pan.x) / this.state.zoom;
-    const y2 = (toRect.top + toRect.height / 2 - containerRect.top - this.state.pan.y) / this.state.zoom;
+    // Convert screen coordinates to SVG local coordinates
+    // Both nodeContainer and svgContainer have the same transform, so we can use their relative positions
+    const x1 = (fromRect.left + fromRect.width / 2 - svgRect.left) / this.state.zoom;
+    const y1 = (fromRect.top + fromRect.height / 2 - svgRect.top) / this.state.zoom;
+    const x2 = (toRect.left + toRect.width / 2 - svgRect.left) / this.state.zoom;
+    const y2 = (toRect.top + toRect.height / 2 - svgRect.top) / this.state.zoom;
 
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const dx = Math.abs(x2 - x1) * 0.5;
     path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
     path.classList.add('connection');
+    path.setAttribute('data-connection-id', connection.id);
     
     // Color based on socket type
     const fromNode = this.state.nodes.get(connection.fromNodeId);
     const fromSocket = fromNode?.outputs.find(s => s.id === connection.fromSocketId);
     const color = this.getSocketColor(fromSocket?.type || 'float');
     path.style.stroke = color;
-
-    // Allow deletion on double-click
+    
+    // Allow selection and deletion
     path.style.pointerEvents = 'stroke';
+    path.style.cursor = 'pointer';
+    
+    // Click to select
+    path.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.selectedConnectionId = connection.id;
+      this.updateConnectionSelection();
+    });
+    
+    // Double-click to delete
     path.addEventListener('dblclick', () => {
-      this.state.connections.delete(connection.id);
-      this.updateConnections();
-      this.updateSocketDisplay(connection.fromSocketId, this.isSocketConnected(connection.fromSocketId));
-      this.updateSocketDisplay(connection.toSocketId, this.isSocketConnected(connection.toSocketId));
-      this.triggerShaderUpdate();
+      this.deleteConnection(connection.id);
+    });
+    
+    // Right-click to delete
+    path.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.deleteConnection(connection.id);
     });
 
     this.svgContainer.appendChild(path);
@@ -710,10 +839,11 @@ export class NodeEditor {
     if (!fromEl) return;
 
     const fromRect = fromEl.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
+    const svgRect = this.svgContainer.getBoundingClientRect();
 
-    const x1 = (fromRect.left + fromRect.width / 2 - containerRect.left - this.state.pan.x) / this.state.zoom;
-    const y1 = (fromRect.top + fromRect.height / 2 - containerRect.top - this.state.pan.y) / this.state.zoom;
+    // Convert screen coordinates to SVG local coordinates
+    const x1 = (fromRect.left + fromRect.width / 2 - svgRect.left) / this.state.zoom;
+    const y1 = (fromRect.top + fromRect.height / 2 - svgRect.top) / this.state.zoom;
     const x2 = this.connectionDrag.currentX;
     const y2 = this.connectionDrag.currentY;
 

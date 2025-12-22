@@ -137,20 +137,40 @@ html, body {
   padding: 12px 0;
 }
 
-.node-row {
+/* Node columns container */
+.node-columns-container {
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px;
+}
+
+/* Input column */
+.node-input-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.node-input-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 12px;
   min-height: 28px;
 }
 
-.node-row.input-only {
-  justify-content: flex-start;
+/* Output column */
+.node-output-column {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
 }
 
-.node-row.output-only {
+.node-output-row {
+  display: flex;
+  align-items: center;
   justify-content: flex-end;
+  min-height: 28px;
 }
 
 /* Sockets */
@@ -193,9 +213,35 @@ html, body {
 .socket-label {
   font-size: 11px;
   color: var(--text-secondary);
+  text-align: left;
+  white-space: nowrap;
 }
 
 /* Inline inputs */
+/* Socket wrapper */
+.socket-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+/* Input group */
+.node-input-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+  margin-right: 8px;
+}
+
+/* Input right side (for input field alignment) */
+.node-input-right-side {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 60px;
+}
+
 .node-input-field {
   width: 60px;
   padding: 2px 6px;
@@ -205,6 +251,7 @@ html, body {
   color: var(--text-primary);
   font-size: 11px;
   text-align: right;
+  margin-left: auto;
 }
 
 .node-input-field:focus {
@@ -231,6 +278,11 @@ html, body {
 
 .connection:hover {
   stroke-width: 4;
+}
+
+.connection.selected {
+  stroke-width: 4;
+  filter: brightness(1.5);
 }
 
 .connection-preview {
