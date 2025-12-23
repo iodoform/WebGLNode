@@ -15,7 +15,6 @@ export * from './rendering/NodeRenderer';
 export * from './rendering/ConnectionRenderer';
 export * from './rendering/MenuManager';
 
-// アダプター
-export * from './adapters/NodeAdapter';
-export * from './adapters/ConnectionAdapter';
+// シェーダー生成
+export * from './shader/WGSLGenerator';
 

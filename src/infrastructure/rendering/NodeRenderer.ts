@@ -1,4 +1,5 @@
-import type { Node, Socket } from '../../types';
+import { Node } from '../../domain/entities/Node';
+import { Socket } from '../../domain/entities/Socket';
 import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
 import { InputFieldRenderer } from './InputFieldRenderer';
 
@@ -24,9 +25,9 @@ export class NodeRenderer {
 
     const nodeEl = document.createElement('div');
     nodeEl.className = 'node';
-    nodeEl.dataset.nodeId = node.id;
-    nodeEl.style.left = `${node.x}px`;
-    nodeEl.style.top = `${node.y}px`;
+    nodeEl.dataset.nodeId = node.id.value;
+    nodeEl.style.left = `${node.position.x}px`;
+    nodeEl.style.top = `${node.position.y}px`;
 
     // Header
     const header = document.createElement('div');
@@ -83,7 +84,7 @@ export class NodeRenderer {
         // Input field or spacer (always present for alignment)
         const rightSide = document.createElement('div');
         rightSide.className = 'node-input-right-side';
-        if (!this.isSocketConnected(input.id)) {
+        if (!this.isSocketConnected(input.id.value)) {
           rightSide.appendChild(this.inputFieldRenderer.createInputField(input, node));
         }
         inputRow.appendChild(rightSide);
@@ -125,12 +126,12 @@ export class NodeRenderer {
     
     const socketEl = document.createElement('div');
     socketEl.className = `socket socket-${socket.direction}`;
-    socketEl.dataset.socketId = socket.id;
-    socketEl.dataset.nodeId = node.id;
+    socketEl.dataset.socketId = socket.id.value;
+    socketEl.dataset.nodeId = node.id.value;
     socketEl.dataset.type = socket.type;
     socketEl.title = `${socket.name} (${socket.type})`;
 
-    if (this.isSocketConnected(socket.id)) {
+    if (this.isSocketConnected(socket.id.value)) {
       socketEl.classList.add('connected');
     }
 
@@ -160,10 +161,10 @@ export class NodeRenderer {
   }
 
   updateNodePosition(node: Node): void {
-    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${node.id}"]`) as HTMLElement;
+    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${node.id.value}"]`) as HTMLElement;
     if (nodeEl) {
-      nodeEl.style.left = `${node.x}px`;
-      nodeEl.style.top = `${node.y}px`;
+      nodeEl.style.left = `${node.position.x}px`;
+      nodeEl.style.top = `${node.position.y}px`;
     }
   }
 
@@ -185,9 +186,9 @@ export class NodeRenderer {
   }
 
   updateNodeInputFields(node: Node): void {
-    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${node.id}"]`) as HTMLElement;
+    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${node.id.value}"]`) as HTMLElement;
     if (!nodeEl) return;
-    this.inputFieldRenderer.updateNodeInputFields(node.id, node, nodeEl);
+    this.inputFieldRenderer.updateNodeInputFields(node.id.value, node, nodeEl);
   }
 }
 

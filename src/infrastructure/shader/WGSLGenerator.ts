@@ -1,6 +1,15 @@
-import type { Node, Connection, NodeDefinition, Socket, SocketType } from '../types';
-import { nodeDefinitionLoader } from './NodeDefinitionLoader';
+import { Node } from '../../domain/entities/Node';
+import { Connection } from '../../domain/entities/Connection';
+import { SocketType } from '../../domain/value-objects/SocketType';
+import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
+import type { NodeDefinition } from '../../types';
 
+/**
+ * WGSLシェーダー生成器
+ * 
+ * ドメインエンティティ（Node、Connection）からWGSLシェーダーコードを生成します。
+ * ノードグラフを解析し、適切な関数呼び出しと変数宣言を生成します。
+ */
 interface GenerationContext {
   nodes: Map<string, Node>;
   connections: Map<string, Connection>;
@@ -45,10 +54,22 @@ export class WGSLGenerator {
     }
   }
 
-  static generate(nodes: Map<string, Node>, connections: Map<string, Connection>): string {
+  static generate(nodes: Node[], connections: Connection[]): string {
+    // Convert arrays to Maps for easier lookup
+    const nodesMap = new Map<string, Node>();
+    const connectionsMap = new Map<string, Connection>();
+    
+    for (const node of nodes) {
+      nodesMap.set(node.id.value, node);
+    }
+    
+    for (const connection of connections) {
+      connectionsMap.set(connection.id.value, connection);
+    }
+
     const context: GenerationContext = {
-      nodes,
-      connections,
+      nodes: nodesMap,
+      connections: connectionsMap,
       processedNodes: new Set(),
       functionCode: [],
       variableDeclarations: [],
@@ -57,7 +78,7 @@ export class WGSLGenerator {
     };
 
     // Find output node
-    const outputNode = Array.from(nodes.values()).find(
+    const outputNode = nodes.find(
       n => n.definitionId === 'output_color'
     );
 
@@ -67,7 +88,7 @@ export class WGSLGenerator {
 
     // Collect all needed function definitions
     const usedDefinitions = new Set<string>();
-    this.collectUsedDefinitions(outputNode, nodes, connections, usedDefinitions);
+    this.collectUsedDefinitions(outputNode, nodesMap, connectionsMap, usedDefinitions);
 
     // Generate function code for each used definition
     const functionDeclarations: string[] = [];
@@ -75,9 +96,9 @@ export class WGSLGenerator {
       const def = nodeDefinitionLoader.getDefinition(defId);
       if (def && def.code) {
         // Replace {{id}} placeholder with unique identifier
-        const nodesOfType = Array.from(nodes.values()).filter(n => n.definitionId === defId);
+        const nodesOfType = Array.from(nodesMap.values()).filter(n => n.definitionId === defId);
         for (const node of nodesOfType) {
-          const code = def.code.replace(/\{\{id\}\}/g, node.id.replace('node_', ''));
+          const code = def.code.replace(/\{\{id\}\}/g, node.id.value.replace('node_', ''));
           if (!functionDeclarations.includes(code)) {
             functionDeclarations.push(code);
           }
@@ -102,10 +123,10 @@ export class WGSLGenerator {
     // Find all input connections
     for (const input of node.inputs) {
       const connection = Array.from(connections.values()).find(
-        c => c.toNodeId === node.id && c.toSocketId === input.id
+        c => c.toNodeId.value === node.id.value && c.toSocketId.value === input.id.value
       );
       if (connection) {
-        const sourceNode = nodes.get(connection.fromNodeId);
+        const sourceNode = nodes.get(connection.fromNodeId.value);
         if (sourceNode && !usedDefinitions.has(sourceNode.definitionId)) {
           this.collectUsedDefinitions(sourceNode, nodes, connections, usedDefinitions);
         }
@@ -117,10 +138,10 @@ export class WGSLGenerator {
     node: Node,
     context: GenerationContext
   ): string {
-    if (context.processedNodes.has(node.id)) {
+    if (context.processedNodes.has(node.id.value)) {
       return '';
     }
-    context.processedNodes.add(node.id);
+    context.processedNodes.add(node.id.value);
 
     const definition = nodeDefinitionLoader.getDefinition(node.definitionId);
     if (!definition) return '';
@@ -133,15 +154,15 @@ export class WGSLGenerator {
       const connection = this.findInputConnection(node.id, input.id, context.connections);
       
       if (connection) {
-        const sourceNode = context.nodes.get(connection.fromNodeId);
+        const sourceNode = context.nodes.get(connection.fromNodeId.value);
         if (sourceNode) {
           // Recursively evaluate source node
           const sourceEval = this.generateNodeEvaluation(sourceNode, context);
           if (sourceEval) lines.push(sourceEval);
           
           // Get the output variable name
-          const sourceOutput = sourceNode.outputs.find(o => o.id === connection.fromSocketId);
-          const outputVars = context.nodeOutputVars.get(sourceNode.id);
+          const sourceOutput = sourceNode.outputs.find(o => o.id.value === connection.fromSocketId.value);
+          const outputVars = context.nodeOutputVars.get(sourceNode.id.value);
           if (outputVars && sourceOutput) {
             inputValues.push(outputVars.get(sourceOutput.name) || this.getDefaultValue(input.type));
           } else {
@@ -150,7 +171,7 @@ export class WGSLGenerator {
         }
       } else {
         // Use node's stored value or default
-        const value = node.values[input.name];
+        const value = node.getValue(input.name);
         inputValues.push(this.getDefaultValue(input.type, value));
       }
     }
@@ -164,9 +185,9 @@ export class WGSLGenerator {
     }
 
     // Generate output variables for this node
-    const nodeId = node.id.replace('node_', '');
+    const nodeId = node.id.value.replace('node_', '');
     const outputVars = new Map<string, string>();
-    context.nodeOutputVars.set(node.id, outputVars);
+    context.nodeOutputVars.set(node.id.value, outputVars);
 
     // Special handling for color picker node
     if (definition.customUI === 'colorPicker') {
@@ -174,7 +195,7 @@ export class WGSLGenerator {
       const varName = `v${++context.variableCounter}`;
       outputVars.set(output.name, varName);
       
-      const colorValue = node.values['_color'] as number[] || [1, 1, 1];
+      const colorValue = node.getValue('_color') as number[] || [1, 1, 1];
       const colorStr = `vec3f(${colorValue[0].toFixed(4)}, ${colorValue[1].toFixed(4)}, ${colorValue[2].toFixed(4)})`;
       lines.push(`  let ${varName}: vec3f = ${colorStr};`);
       return lines.join('\n');
@@ -204,12 +225,12 @@ export class WGSLGenerator {
   }
 
   private static findInputConnection(
-    nodeId: string,
-    socketId: string,
+    nodeId: Node['id'],
+    socketId: { value: string },
     connections: Map<string, Connection>
   ): Connection | undefined {
     return Array.from(connections.values()).find(
-      c => c.toNodeId === nodeId && c.toSocketId === socketId
+      c => c.toNodeId.value === nodeId.value && c.toSocketId.value === socketId.value
     );
   }
 

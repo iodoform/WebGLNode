@@ -1,7 +1,7 @@
-// Socket types for WGSL
+// Socket types for WGSL (used in JSON definitions)
 export type SocketType = 'float' | 'vec2' | 'vec3' | 'vec4' | 'color' | 'sampler' | 'texture2d';
 
-// Socket direction
+// Socket direction (used in JSON definitions)
 export type SocketDirection = 'input' | 'output';
 
 // Socket definition from JSON
@@ -23,61 +23,5 @@ export interface NodeDefinition {
   outputs: SocketDefinition[];
   code: string; // WGSL function template
   customUI?: 'colorPicker'; // Special UI type
-}
-
-// Runtime socket instance
-export interface Socket {
-  id: string;
-  nodeId: string;
-  name: string;
-  type: SocketType;
-  direction: SocketDirection;
-  value?: number | number[];
-}
-
-// Runtime node instance
-export interface Node {
-  id: string;
-  definitionId: string;
-  x: number;
-  y: number;
-  inputs: Socket[];
-  outputs: Socket[];
-  values: Record<string, number | number[]>;
-}
-
-// Connection between sockets
-export interface Connection {
-  id: string;
-  fromNodeId: string;
-  fromSocketId: string;
-  toNodeId: string;
-  toSocketId: string;
-}
-
-// Editor state
-export interface EditorState {
-  nodes: Map<string, Node>;
-  connections: Map<string, Connection>;
-  selectedNodes: Set<string>;
-  pan: { x: number; y: number };
-  zoom: number;
-}
-
-// Event types
-export interface DragState {
-  isDragging: boolean;
-  startX: number;
-  startY: number;
-  nodeId?: string;
-  offsetX: number;
-  offsetY: number;
-}
-
-export interface ConnectionDragState {
-  isConnecting: boolean;
-  fromSocket?: Socket;
-  currentX: number;
-  currentY: number;
 }
 

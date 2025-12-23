@@ -1,4 +1,6 @@
-import type { Connection, Node, SocketType } from '../../types';
+import { Connection } from '../../domain/entities/Connection';
+import { Node } from '../../domain/entities/Node';
+import { SocketType } from '../../domain/value-objects/SocketType';
 
 /**
  * 接続線のレンダリングを担当するクラス
@@ -18,10 +20,10 @@ export class ConnectionRenderer {
 
   renderConnection(connection: Connection): void {
     const fromEl = this.nodeContainer.querySelector(
-      `[data-socket-id="${connection.fromSocketId}"]`
+      `[data-socket-id="${connection.fromSocketId.value}"]`
     );
     const toEl = this.nodeContainer.querySelector(
-      `[data-socket-id="${connection.toSocketId}"]`
+      `[data-socket-id="${connection.toSocketId.value}"]`
     );
 
     if (!fromEl || !toEl) return;
@@ -41,11 +43,11 @@ export class ConnectionRenderer {
     const dx = Math.abs(x2 - x1) * 0.5;
     path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
     path.classList.add('connection');
-    path.setAttribute('data-connection-id', connection.id);
+    path.setAttribute('data-connection-id', connection.id.value);
     
     // Color based on socket type
-    const fromNode = this.nodes.get(connection.fromNodeId);
-    const fromSocket = fromNode?.outputs.find(s => s.id === connection.fromSocketId);
+    const fromNode = this.nodes.get(connection.fromNodeId.value);
+    const fromSocket = fromNode?.outputs.find(s => s.id.equals(connection.fromSocketId));
     const color = this.getSocketColor(fromSocket?.type || 'float');
     path.style.stroke = color;
     
@@ -56,31 +58,31 @@ export class ConnectionRenderer {
     // Click to select
     path.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.onConnectionClick(connection.id);
+      this.onConnectionClick(connection.id.value);
     });
     
     // Double-click to delete
     path.addEventListener('dblclick', () => {
-      this.onConnectionDelete(connection.id);
+      this.onConnectionDelete(connection.id.value);
     });
     
     // Right-click to delete
     path.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this.onConnectionDelete(connection.id);
+      this.onConnectionDelete(connection.id.value);
     });
 
     this.svgContainer.appendChild(path);
   }
 
-  updateConnections(connections: Map<string, Connection>): void {
+  updateConnections(connections: Connection[]): void {
     // Clear existing paths
     while (this.svgContainer.firstChild) {
       this.svgContainer.removeChild(this.svgContainer.firstChild);
     }
 
-    for (const connection of connections.values()) {
+    for (const connection of connections) {
       this.renderConnection(connection);
     }
   }
@@ -113,10 +115,10 @@ export class ConnectionRenderer {
     path.classList.add('connection', 'connection-preview');
     
     const fromNode = Array.from(this.nodes.values()).find(n => 
-      n.outputs.some(s => s.id === fromSocketId) || n.inputs.some(s => s.id === fromSocketId)
+      n.outputs.some(s => s.id.value === fromSocketId) || n.inputs.some(s => s.id.value === fromSocketId)
     );
-    const fromSocket = fromNode?.outputs.find(s => s.id === fromSocketId) || 
-                       fromNode?.inputs.find(s => s.id === fromSocketId);
+    const fromSocket = fromNode?.outputs.find(s => s.id.value === fromSocketId) || 
+                       fromNode?.inputs.find(s => s.id.value === fromSocketId);
     path.style.stroke = this.getSocketColor(fromSocket?.type || 'float');
 
     this.svgContainer.appendChild(path);

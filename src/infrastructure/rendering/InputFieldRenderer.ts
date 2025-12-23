@@ -1,4 +1,5 @@
-import type { Node, Socket } from '../../types';
+import { Node } from '../../domain/entities/Node';
+import { Socket } from '../../domain/entities/Socket';
 
 /**
  * 入力フィールドのレンダリングを担当するクラス
@@ -9,7 +10,8 @@ import type { Node, Socket } from '../../types';
 export class InputFieldRenderer {
   constructor(
     private isSocketConnected: (socketId: string) => boolean,
-    private triggerShaderUpdate: () => void
+    private triggerShaderUpdate: () => void,
+    private updateNodeValue: (nodeId: string, name: string, value: number | number[]) => void
   ) {}
 
   createInputField(socket: Socket, node: Node): HTMLElement {
@@ -36,7 +38,7 @@ export class InputFieldRenderer {
     input.type = 'number';
     input.step = '0.1';
     
-    const value = node.values[socket.name];
+    const value = node.getValue(socket.name);
     if (Array.isArray(value)) {
       input.value = String(value[0] ?? 0);
     } else {
@@ -45,10 +47,13 @@ export class InputFieldRenderer {
 
     input.addEventListener('change', () => {
       const newValue = parseFloat(input.value) || 0;
-      if (Array.isArray(node.values[socket.name])) {
-        (node.values[socket.name] as number[])[0] = newValue;
+      const currentValue = node.getValue(socket.name);
+      if (Array.isArray(currentValue)) {
+        const newArray = [...currentValue];
+        newArray[0] = newValue;
+        this.updateNodeValue(node.id.value, socket.name, newArray);
       } else {
-        node.values[socket.name] = newValue;
+        this.updateNodeValue(node.id.value, socket.name, newValue);
       }
       this.triggerShaderUpdate();
     });
@@ -64,13 +69,15 @@ export class InputFieldRenderer {
     
     const componentLabels = ['X', 'Y', 'Z', 'W'];
     
-    // Initialize value as array if not already
-    if (!Array.isArray(node.values[socket.name])) {
-      const singleValue = node.values[socket.name] ?? 0;
-      node.values[socket.name] = Array(dimensions).fill(singleValue);
+    // Get current value
+    let currentValue = node.getValue(socket.name);
+    if (!Array.isArray(currentValue)) {
+      const singleValue = currentValue ?? 0;
+      currentValue = Array(dimensions).fill(singleValue);
+      this.updateNodeValue(node.id.value, socket.name, currentValue);
     }
     
-    const currentValue = node.values[socket.name] as number[];
+    const valueArray = currentValue as number[];
     
     for (let i = 0; i < dimensions; i++) {
       const row = document.createElement('div');
@@ -85,14 +92,19 @@ export class InputFieldRenderer {
       input.className = 'node-input-field node-vector-input-field';
       input.type = 'number';
       input.step = '0.1';
-      input.value = String(currentValue[i] ?? 0);
+      input.value = String((valueArray as number[])[i] ?? 0);
       
       input.addEventListener('change', () => {
         const newValue = parseFloat(input.value) || 0;
-        if (!Array.isArray(node.values[socket.name])) {
-          node.values[socket.name] = Array(dimensions).fill(0);
+        const current = node.getValue(socket.name);
+        let newArray: number[];
+        if (!Array.isArray(current)) {
+          newArray = Array(dimensions).fill(0);
+        } else {
+          newArray = [...current];
         }
-        (node.values[socket.name] as number[])[i] = newValue;
+        newArray[i] = newValue;
+        this.updateNodeValue(node.id.value, socket.name, newArray);
         this.triggerShaderUpdate();
       });
       
@@ -114,7 +126,7 @@ export class InputFieldRenderer {
     colorInput.className = 'node-color-picker';
     
     // Get current color value
-    const value = node.values[socket.name];
+    const value = node.getValue(socket.name);
     let r = 0, g = 0, b = 0;
     if (Array.isArray(value)) {
       r = Math.round(Math.max(0, Math.min(1, value[0] ?? 0)) * 255);
@@ -128,7 +140,7 @@ export class InputFieldRenderer {
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
       const b = parseInt(hex.slice(5, 7), 16) / 255;
-      node.values[socket.name] = [r, g, b];
+      this.updateNodeValue(node.id.value, socket.name, [r, g, b]);
       this.triggerShaderUpdate();
     });
 
@@ -148,14 +160,16 @@ export class InputFieldRenderer {
     colorInput.className = 'node-large-color-picker';
     
     // Initialize color value if not set
-    if (!node.values['_color']) {
-      node.values['_color'] = [1, 1, 1];
+    let value = node.getValue('_color');
+    if (!value) {
+      value = [1, 1, 1];
+      this.updateNodeValue(node.id.value, '_color', value);
     }
     
-    const value = node.values['_color'] as number[];
-    const r = Math.round(Math.max(0, Math.min(1, value[0])) * 255);
-    const g = Math.round(Math.max(0, Math.min(1, value[1])) * 255);
-    const b = Math.round(Math.max(0, Math.min(1, value[2])) * 255);
+    const valueArray = (Array.isArray(value) ? value : [value, value, value]) as number[];
+    const r = Math.round(Math.max(0, Math.min(1, valueArray[0])) * 255);
+    const g = Math.round(Math.max(0, Math.min(1, valueArray[1])) * 255);
+    const b = Math.round(Math.max(0, Math.min(1, valueArray[2])) * 255);
     colorInput.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     
     colorInput.addEventListener('input', () => {
@@ -163,7 +177,7 @@ export class InputFieldRenderer {
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
       const b = parseInt(hex.slice(5, 7), 16) / 255;
-      node.values['_color'] = [r, g, b];
+      this.updateNodeValue(node.id.value, '_color', [r, g, b]);
       this.triggerShaderUpdate();
     });
 
@@ -195,7 +209,7 @@ export class InputFieldRenderer {
       }
 
       // Add input field if not connected
-      if (!this.isSocketConnected(input.id)) {
+      if (!this.isSocketConnected(input.id.value)) {
         if (input.type === 'color') {
           rightSide.appendChild(this.createColorInput(input, node));
         } else {

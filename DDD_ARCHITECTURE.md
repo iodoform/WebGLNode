@@ -34,14 +34,23 @@ src/
 │   ├── repositories/          # リポジトリ実装
 │   │   ├── InMemoryNodeRepository.ts
 │   │   └── InMemoryConnectionRepository.ts
-│   └── rendering/            # レンダリング（UI実装）
-│       ├── InputFieldRenderer.ts
-│       ├── NodeRenderer.ts
-│       ├── ConnectionRenderer.ts
-│       └── MenuManager.ts
+│   ├── rendering/            # レンダリング（UI実装）
+│   │   ├── InputFieldRenderer.ts
+│   │   ├── NodeRenderer.ts
+│   │   ├── ConnectionRenderer.ts
+│   │   └── MenuManager.ts
+│   └── shader/               # シェーダー生成
+│       └── WGSLGenerator.ts
 │
-└── editor/                    # プレゼンテーション層（UI調整）
-    └── NodeEditor.ts          # メインエディタークラス
+├── editor/                    # プレゼンテーション層（UI調整）
+│   ├── NodeEditor.ts          # メインエディタークラス
+│   └── types.ts               # エディター状態管理の型定義
+│
+├── nodes/                     # ノード定義ローダー
+│   └── NodeDefinitionLoader.ts # JSON定義の読み込み
+│
+└── types/                     # 型定義（設定データ）
+    └── index.ts               # NodeDefinition, SocketDefinition等
 ```
 
 ## レイヤーの責務
@@ -68,6 +77,7 @@ src/
 
 - **リポジトリ実装**: データ永続化の実装（現在はインメモリ）
 - **レンダリング**: DOM操作とUI描画
+- **シェーダー生成**: WGSLシェーダーコードの生成
 
 ### プレゼンテーション層（editor/）
 
@@ -98,36 +108,57 @@ UIの調整とイベント処理を担当します。
 3. **不変性**: 値オブジェクトとエンティティの重要な属性は不変です
 4. **ドメインロジックの分離**: ビジネスロジックはUIや技術的詳細から分離されています
 
-## 移行計画
+## 主要なコンポーネント
 
-### 完了した移行
+### ドメインエンティティ
 
-1. ✅ **レンダラーの移動**: `src/editor/`のレンダラークラスを`src/infrastructure/rendering/`に移動
-   - `InputFieldRenderer`
-   - `NodeRenderer`
-   - `ConnectionRenderer`
-   - `MenuManager`
+- **Node**: ノードグラフ内のノードを表すエンティティ。位置、定義ID、入力/出力ソケット、値を持つ
+- **Socket**: ノードの入力または出力ソケットを表すエンティティ
+- **Connection**: 2つのソケット間の接続を表すエンティティ
 
-2. ✅ **アダプター層の作成**: 古い型と新しいドメインエンティティの変換を行うアダプターを追加
-   - `NodeAdapter`: ノードとソケットの変換
-   - `ConnectionAdapter`: 接続の変換
+### 値オブジェクト
 
-3. ✅ **NodeEditorの移行**: `NodeEditor`を新しいDDD構造（`NodeEditorService`、リポジトリ）を使用するように変更
-   - ノードの追加・削除・移動をドメインサービス経由で実行
-   - 接続の作成・削除をドメインサービス経由で実行
+- **Position**: ノードの位置（x, y座標）を表す不変オブジェクト
+- **SocketType**: ソケットの型（float, vec2, vec3, vec4, color等）を表す値オブジェクト
+- **Id**: NodeId, SocketId, ConnectionIdの基底となる値オブジェクト
 
-### 残りの作業
+### リポジトリ
 
-1. ⏳ **WGSLGeneratorの移行**: `WGSLGenerator`を新しいドメインエンティティに対応させる
-   - 現在はレガシー型を使用しているため、アダプター経由で変換が必要
+- **INodeRepository**: ノードの永続化と取得のインターフェース
+- **IConnectionRepository**: 接続の永続化と取得のインターフェース
+- **InMemoryNodeRepository**: インメモリ実装
+- **InMemoryConnectionRepository**: インメモリ実装
 
-2. ⏳ **古いコードの削除**: 完全に移行が完了したら、以下のファイルを削除
-   - `src/nodes/NodeFactory.ts`（古い実装）
-   - `src/types/index.ts`（完全に置き換え可能になった場合）
+### ドメインサービス
 
-### 現在の状態
+- **NodeFactory**: ノードの作成とクローンを行うドメインサービス
 
-- 新しいDDD構造が主要な操作で使用されている
-- レガシー型（`src/types/index.ts`）はレンダリングとWGSL生成でまだ使用されている
-- アダプター層により、両方の構造が共存可能
+### ユースケース
+
+- **AddNodeUseCase**: ノードを追加するユースケース
+- **CreateConnectionUseCase**: 接続を作成するユースケース
+- **DeleteNodeUseCase**: ノードを削除するユースケース
+- **DeleteConnectionUseCase**: 接続を削除するユースケース
+
+### アプリケーションサービス
+
+- **NodeEditorService**: ノードエディターの主要操作を統合的に管理するサービス
+
+### レンダラー
+
+- **InputFieldRenderer**: 入力フィールド（数値、ベクトル、カラー）のレンダリング
+- **NodeRenderer**: ノードのDOM要素の作成と更新
+- **ConnectionRenderer**: 接続線のSVG描画
+- **MenuManager**: ノード追加メニューの管理
+
+### シェーダー生成
+
+- **WGSLGenerator**: ドメインエンティティからWGSLシェーダーコードを生成
+
+## データフロー
+
+1. **ノード追加**: `NodeEditor` → `NodeEditorService` → `AddNodeUseCase` → `NodeFactory` → `INodeRepository`
+2. **接続作成**: `NodeEditor` → `NodeEditorService` → `CreateConnectionUseCase` → `IConnectionRepository`
+3. **シェーダー生成**: `NodeEditor` → `WGSLGenerator`（リポジトリからエンティティを取得）
+4. **UI更新**: `NodeEditor` → `NodeRenderer` / `ConnectionRenderer`（ドメインエンティティを直接使用）
 

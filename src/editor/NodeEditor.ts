@@ -1,5 +1,7 @@
-import type { Node, Socket, EditorState, DragState, ConnectionDragState } from '../types';
-import { WGSLGenerator } from '../nodes/WGSLGenerator';
+import type { EditorState, DragState, ConnectionDragState } from './types';
+import { Node } from '../domain/entities/Node';
+import { Socket } from '../domain/entities/Socket';
+import { WGSLGenerator } from '../infrastructure/shader/WGSLGenerator';
 import { InputFieldRenderer } from '../infrastructure/rendering/InputFieldRenderer';
 import { NodeRenderer } from '../infrastructure/rendering/NodeRenderer';
 import { ConnectionRenderer } from '../infrastructure/rendering/ConnectionRenderer';
@@ -10,8 +12,6 @@ import { InMemoryConnectionRepository } from '../infrastructure/repositories/InM
 import { Position } from '../domain/value-objects/Position';
 import { NodeId } from '../domain/value-objects/Id';
 import { ConnectionId } from '../domain/value-objects/Id';
-import { NodeAdapter } from '../infrastructure/adapters/NodeAdapter';
-import { ConnectionAdapter } from '../infrastructure/adapters/ConnectionAdapter';
 import { nodeDefinitionLoader } from '../nodes/NodeDefinitionLoader';
 
 /**
@@ -37,6 +37,9 @@ export class NodeEditor {
   private nodeRepository: InMemoryNodeRepository;
   private connectionRepository: InMemoryConnectionRepository;
   private nodeEditorService: NodeEditorService;
+  
+  // Cache for rendering (maps node IDs to domain entities)
+  private nodeCache: Map<string, Node> = new Map();
 
   // Renderers
   private inputFieldRenderer: InputFieldRenderer;
@@ -59,7 +62,6 @@ export class NodeEditor {
 
     this.state = {
       nodes: new Map(),
-      connections: new Map(),
       selectedNodes: new Set(),
       pan: { x: 0, y: 0 },
       zoom: 1,
@@ -90,7 +92,11 @@ export class NodeEditor {
     // Initialize renderers
     this.inputFieldRenderer = new InputFieldRenderer(
       (socketId) => this.isSocketConnected(socketId),
-      () => this.triggerShaderUpdate()
+      () => this.triggerShaderUpdate(),
+      (nodeId, name, value) => {
+        const nodeIdObj = new NodeId(nodeId);
+        this.nodeEditorService.updateNodeValue(nodeIdObj, name, value);
+      }
     );
 
     this.nodeRenderer = new NodeRenderer(
@@ -105,7 +111,7 @@ export class NodeEditor {
     this.connectionRenderer = new ConnectionRenderer(
       this.svgContainer,
       this.nodeContainer,
-      this.state.nodes,
+      this.nodeCache,
       () => this.state.zoom,
       (connectionId) => this.handleConnectionClick(connectionId),
       (connectionId) => this.deleteConnection(connectionId)
@@ -185,17 +191,23 @@ export class NodeEditor {
         const dy = (e.clientY - this.dragState.startY) / this.state.zoom;
         const newX = this.dragState.offsetX + dx;
         const newY = this.dragState.offsetY + dy;
-        this.handleNodeMove(node.id, newX, newY);
-        this.nodeRenderer.updateNodePosition(node);
-        this.connectionRenderer.updateConnections(this.state.connections);
+        const nodeIdStr = node.id;
+        this.handleNodeMove(nodeIdStr, newX, newY);
+        const domainNode = this.nodeCache.get(nodeIdStr);
+        if (domainNode) {
+          this.nodeRenderer.updateNodePosition(domainNode);
+        }
+        const connections = this.nodeEditorService.getAllConnections();
+        this.connectionRenderer.updateConnections(connections);
       }
     } else if (this.connectionDrag.isConnecting) {
       const svgRect = this.svgContainer.getBoundingClientRect();
       this.connectionDrag.currentX = (e.clientX - svgRect.left) / this.state.zoom;
       this.connectionDrag.currentY = (e.clientY - svgRect.top) / this.state.zoom;
       if (this.connectionDrag.fromSocket) {
+        const socketId = this.connectionDrag.fromSocket.id;
         this.connectionRenderer.updateConnectionPreview(
-          this.connectionDrag.fromSocket.id,
+          socketId,
           this.connectionDrag.currentX,
           this.connectionDrag.currentY
         );
@@ -208,7 +220,14 @@ export class NodeEditor {
       // Check if dropped on a valid socket
       const targetSocket = this.getSocketAtPosition(e.clientX, e.clientY);
       if (targetSocket && this.connectionDrag.fromSocket) {
-        this.createConnection(this.connectionDrag.fromSocket, targetSocket);
+      // Reconstruct Socket from connectionDrag state
+      const fromNode = this.nodeCache.get(this.connectionDrag.fromSocket.nodeId);
+      if (fromNode) {
+        const fromSocket = fromNode.getSocket(this.connectionDrag.fromSocket.id);
+        if (fromSocket) {
+          this.createConnection(fromSocket, targetSocket);
+        }
+      }
       }
       this.connectionDrag.isConnecting = false;
       this.connectionRenderer.removeConnectionPreview();
@@ -268,7 +287,8 @@ export class NodeEditor {
       `translate(${this.state.pan.x}px, ${this.state.pan.y}px) scale(${this.state.zoom})`;
     this.svgContainer.style.transform = 
       `translate(${this.state.pan.x}px, ${this.state.pan.y}px) scale(${this.state.zoom})`;
-    this.connectionRenderer.updateConnections(this.state.connections);
+    const connections = this.nodeEditorService.getAllConnections();
+    this.connectionRenderer.updateConnections(connections);
   }
 
   addNode(definitionId: string, x: number, y: number): Node | null {
@@ -278,21 +298,45 @@ export class NodeEditor {
     const position = new Position(x, y);
     const domainNode = this.nodeEditorService.addNode(definition, position);
     
-    // Convert to legacy format for rendering
-    const legacyNode = NodeAdapter.toLegacyNode(domainNode);
-    this.state.nodes.set(legacyNode.id, legacyNode);
-    this.nodeRenderer.renderNode(legacyNode);
+    // Update cache and render
+    this.nodeCache.set(domainNode.id.value, domainNode);
+    this.syncNodeCacheToState();
+    this.nodeRenderer.renderNode(domainNode);
+    this.updateConnectionRendererNodes();
     this.triggerShaderUpdate();
     
-    return legacyNode;
+    return domainNode;
+  }
+  
+  private syncNodeCacheToState(): void {
+    // Keep state.nodes in sync for EditorState compatibility
+    // This is temporary until EditorState is fully migrated
+    this.state.nodes.clear();
+    for (const node of this.nodeCache.values()) {
+      // Create minimal state entry (for compatibility)
+      this.state.nodes.set(node.id.value, {
+        id: node.id.value,
+        definitionId: node.definitionId,
+        x: node.position.x,
+        y: node.position.y,
+        inputs: [],
+        outputs: [],
+        values: {},
+      });
+    }
+  }
+  
+  private updateConnectionRendererNodes(): void {
+    // Update ConnectionRenderer's node map
+    (this.connectionRenderer as any).nodes = this.nodeCache;
   }
 
   private handleSocketClick(socket: Socket, e: MouseEvent): void {
     e.stopPropagation();
     
     // If clicking on an input socket that already has a connection, disconnect it
-    if (socket.direction === 'input' && this.isSocketConnected(socket.id)) {
-      this.disconnectSocket(socket.id);
+    if (socket.direction === 'input' && this.isSocketConnected(socket.id.value)) {
+      this.disconnectSocket(socket.id.value);
       return;
     }
     
@@ -302,8 +346,15 @@ export class NodeEditor {
       // Only create connection if we're actually connecting (not just disconnecting)
       if (this.connectionDrag.isConnecting && this.connectionDrag.fromSocket) {
         // Don't create connection if clicking on the same socket we started from
-        if (this.connectionDrag.fromSocket.id !== socket.id) {
-          this.createConnection(this.connectionDrag.fromSocket, socket);
+        if (this.connectionDrag.fromSocket.id !== socket.id.value) {
+          // Reconstruct Socket from connectionDrag state
+          const fromNode = this.nodeCache.get(this.connectionDrag.fromSocket.nodeId);
+          if (fromNode) {
+            const fromSocket = fromNode.getSocket(this.connectionDrag.fromSocket.id);
+            if (fromSocket) {
+              this.createConnection(fromSocket, socket);
+            }
+          }
         }
         this.connectionDrag.isConnecting = false;
         this.connectionRenderer.removeConnectionPreview();
@@ -319,9 +370,9 @@ export class NodeEditor {
       isDragging: true,
       startX: e.clientX,
       startY: e.clientY,
-      nodeId: node.id,
-      offsetX: node.x,
-      offsetY: node.y,
+      nodeId: node.id.value,
+      offsetX: node.position.x,
+      offsetY: node.position.y,
     };
   }
 
@@ -330,7 +381,7 @@ export class NodeEditor {
       if (!e.shiftKey) {
         this.state.selectedNodes.clear();
       }
-      this.state.selectedNodes.add(node.id);
+      this.state.selectedNodes.add(node.id.value);
       this.nodeRenderer.updateSelectionDisplay(this.state.selectedNodes);
     }
   }
@@ -355,7 +406,13 @@ export class NodeEditor {
   private startConnectionDrag(socket: Socket): void {
     this.connectionDrag = {
       isConnecting: true,
-      fromSocket: socket,
+      fromSocket: {
+        id: socket.id.value,
+        nodeId: socket.nodeId.value,
+        name: socket.name,
+        type: socket.type,
+        direction: socket.direction,
+      },
       currentX: 0,
       currentY: 0,
     };
@@ -364,35 +421,19 @@ export class NodeEditor {
 
   private createConnection(from: Socket, to: Socket): void {
     try {
-      // Convert legacy sockets to domain entities
-      const fromNode = this.state.nodes.get(from.nodeId);
-      const toNode = this.state.nodes.get(to.nodeId);
-      if (!fromNode || !toNode) return;
-
-      const domainFromNode = NodeAdapter.toDomainNode(fromNode);
-      const domainToNode = NodeAdapter.toDomainNode(toNode);
-      
-      const domainFromSocket = domainFromNode.getSocket(from.id);
-      const domainToSocket = domainToNode.getSocket(to.id);
-      
-      if (!domainFromSocket || !domainToSocket) return;
-
       // Use domain service to create connection
-      const domainConnection = this.nodeEditorService.createConnection(
-        domainFromSocket.id,
-        domainToSocket.id
+      this.nodeEditorService.createConnection(
+        from.id,
+        to.id
       );
 
-      // Convert to legacy format for rendering
-      const legacyConnection = ConnectionAdapter.toLegacyConnection(domainConnection);
-      this.state.connections.set(legacyConnection.id, legacyConnection);
+      // Update rendering
+      const connections = this.nodeEditorService.getAllConnections();
+      this.connectionRenderer.updateConnections(connections);
+      this.nodeRenderer.updateSocketDisplay(from.id.value, true);
+      this.nodeRenderer.updateSocketDisplay(to.id.value, true);
       
-      // Sync connections from repository
-      this.syncConnectionsFromRepository();
-      this.connectionRenderer.updateConnections(this.state.connections);
-      this.nodeRenderer.updateSocketDisplay(from.id, true);
-      this.nodeRenderer.updateSocketDisplay(to.id, true);
-      
+      const toNode = this.nodeCache.get(to.nodeId.value);
       if (toNode) {
         this.nodeRenderer.updateNodeInputFields(toNode);
       }
@@ -403,23 +444,11 @@ export class NodeEditor {
     }
   }
 
-  private syncConnectionsFromRepository(): void {
-    // Sync connections from repository to legacy state
-    const domainConnections = this.nodeEditorService.getAllConnections();
-    this.state.connections.clear();
-    for (const domainConn of domainConnections) {
-      const legacyConn = ConnectionAdapter.toLegacyConnection(domainConn);
-      this.state.connections.set(legacyConn.id, legacyConn);
-    }
-  }
-
   private isSocketConnected(socketId: string): boolean {
-    for (const conn of this.state.connections.values()) {
-      if (conn.fromSocketId === socketId || conn.toSocketId === socketId) {
-        return true;
-      }
-    }
-    return false;
+    const connections = this.nodeEditorService.getAllConnections();
+    return connections.some(conn => 
+      conn.fromSocketId.value === socketId || conn.toSocketId.value === socketId
+    );
   }
 
   private handleConnectionClick(connectionId: string): void {
@@ -428,16 +457,18 @@ export class NodeEditor {
   }
 
   private disconnectSocket(socketId: string): void {
-    for (const [id, conn] of this.state.connections) {
-      if (conn.fromSocketId === socketId || conn.toSocketId === socketId) {
-        this.deleteConnection(id);
-        break; // Only disconnect one connection per socket
-      }
+    const connections = this.nodeEditorService.getAllConnections();
+    const connection = connections.find(conn => 
+      conn.fromSocketId.value === socketId || conn.toSocketId.value === socketId
+    );
+    if (connection) {
+      this.deleteConnection(connection.id.value);
     }
   }
   
   private deleteConnection(connectionId: string): void {
-    const connection = this.state.connections.get(connectionId);
+    const connections = this.nodeEditorService.getAllConnections();
+    const connection = connections.find(c => c.id.value === connectionId);
     if (!connection) return;
     
     try {
@@ -445,19 +476,20 @@ export class NodeEditor {
       const domainConnectionId = new ConnectionId(connectionId);
       this.nodeEditorService.deleteConnection(domainConnectionId);
       
-      this.state.connections.delete(connectionId);
-      this.connectionRenderer.updateConnections(this.state.connections);
+      // Update rendering
+      const updatedConnections = this.nodeEditorService.getAllConnections();
+      this.connectionRenderer.updateConnections(updatedConnections);
       this.nodeRenderer.updateSocketDisplay(
-        connection.fromSocketId,
-        this.isSocketConnected(connection.fromSocketId)
+        connection.fromSocketId.value,
+        this.isSocketConnected(connection.fromSocketId.value)
       );
       this.nodeRenderer.updateSocketDisplay(
-        connection.toSocketId,
-        this.isSocketConnected(connection.toSocketId)
+        connection.toSocketId.value,
+        this.isSocketConnected(connection.toSocketId.value)
       );
       
       // Update input fields for the node that had the input connection
-      const toNode = this.state.nodes.get(connection.toNodeId);
+      const toNode = this.nodeCache.get(connection.toNodeId.value);
       if (toNode) {
         this.nodeRenderer.updateNodeInputFields(toNode);
       }
@@ -479,9 +511,9 @@ export class NodeEditor {
         const socketId = (el as HTMLElement).dataset.socketId;
         const nodeId = (el as HTMLElement).dataset.nodeId;
         if (socketId && nodeId) {
-          const node = this.state.nodes.get(nodeId);
+          const node = this.nodeCache.get(nodeId);
           if (node) {
-            return [...node.inputs, ...node.outputs].find(s => s.id === socketId);
+            return [...node.inputs, ...node.outputs].find(s => s.id.value === socketId);
           }
         }
       }
@@ -492,7 +524,7 @@ export class NodeEditor {
   private deleteSelectedNodes(): void {
     for (const nodeIdStr of this.state.selectedNodes) {
       // Don't delete output node
-      const node = this.state.nodes.get(nodeIdStr);
+      const node = this.nodeCache.get(nodeIdStr);
       if (node?.definitionId === 'output_color') continue;
 
       try {
@@ -500,15 +532,11 @@ export class NodeEditor {
         const nodeId = new NodeId(nodeIdStr);
         this.nodeEditorService.deleteNode(nodeId);
         
-        // Remove related connections
-        for (const [connId, conn] of this.state.connections) {
-          if (conn.fromNodeId === nodeIdStr || conn.toNodeId === nodeIdStr) {
-            this.state.connections.delete(connId);
-          }
-        }
+        // Remove from cache
+        this.nodeCache.delete(nodeIdStr);
+        this.syncNodeCacheToState();
 
-        // Remove node
-        this.state.nodes.delete(nodeIdStr);
+        // Remove node DOM element
         const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeIdStr}"]`);
         if (nodeEl) nodeEl.remove();
       } catch (error) {
@@ -517,14 +545,16 @@ export class NodeEditor {
     }
 
     this.state.selectedNodes.clear();
-    this.connectionRenderer.updateConnections(this.state.connections);
+    const connections = this.nodeEditorService.getAllConnections();
+    this.connectionRenderer.updateConnections(connections);
     this.triggerShaderUpdate();
   }
 
   private triggerShaderUpdate(): void {
-    // Convert domain entities to legacy format for WGSLGenerator
-    // (WGSLGenerator still uses legacy types)
-    const code = WGSLGenerator.generate(this.state.nodes, this.state.connections);
+    // Get domain entities from repository and generate shader
+    const domainNodes = this.nodeEditorService.getAllNodes();
+    const domainConnections = this.nodeEditorService.getAllConnections();
+    const code = WGSLGenerator.generate(domainNodes, domainConnections);
     this.onShaderUpdate?.(code);
   }
 
@@ -544,6 +574,9 @@ export class NodeEditor {
   }
 
   generateShader(): string {
-    return WGSLGenerator.generate(this.state.nodes, this.state.connections);
+    // Get domain entities from repository and generate shader
+    const domainNodes = this.nodeEditorService.getAllNodes();
+    const domainConnections = this.nodeEditorService.getAllConnections();
+    return WGSLGenerator.generate(domainNodes, domainConnections);
   }
 }
