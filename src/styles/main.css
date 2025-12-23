@@ -240,6 +240,13 @@ html, body {
   align-items: center;
   justify-content: flex-end;
   width: 60px;
+  flex-shrink: 0;
+}
+
+.node-input-right-side:has(.node-vector-input-wrapper) {
+  align-items: flex-start;
+  flex-direction: column;
+  width: 76px;
 }
 
 .node-input-field {
@@ -252,9 +259,54 @@ html, body {
   font-size: 11px;
   text-align: right;
   margin-left: auto;
+  box-sizing: border-box;
 }
 
 .node-input-field:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+/* Vector input wrapper */
+.node-vector-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.node-vector-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.node-vector-component-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.node-vector-input-field {
+  flex: 1;
+  min-width: 0;
+  width: 0;
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 11px;
+  text-align: right;
+  margin-left: 0;
+  box-sizing: border-box;
+}
+
+.node-vector-input-field:focus {
   outline: none;
   border-color: var(--accent-primary);
 }

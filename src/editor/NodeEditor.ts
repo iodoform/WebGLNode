@@ -461,6 +461,19 @@ export class NodeEditor {
       return this.createColorInput(socket, node);
     }
     
+    // Handle vector types (vec2, vec3, vec4) - show multiple input fields
+    const vectorDimensions: Record<string, number> = {
+      'vec2': 2,
+      'vec3': 3,
+      'vec4': 4,
+    };
+    
+    const dimensions = vectorDimensions[socket.type];
+    if (dimensions) {
+      return this.createVectorInput(socket, node, dimensions);
+    }
+    
+    // Single float input
     const input = document.createElement('input');
     input.className = 'node-input-field';
     input.type = 'number';
@@ -486,6 +499,53 @@ export class NodeEditor {
     input.addEventListener('mousedown', (e) => e.stopPropagation());
 
     return input;
+  }
+
+  private createVectorInput(socket: Socket, node: Node, dimensions: number): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'node-vector-input-wrapper';
+    
+    const componentLabels = ['X', 'Y', 'Z', 'W'];
+    
+    // Initialize value as array if not already
+    if (!Array.isArray(node.values[socket.name])) {
+      const singleValue = node.values[socket.name] ?? 0;
+      node.values[socket.name] = Array(dimensions).fill(singleValue);
+    }
+    
+    const currentValue = node.values[socket.name] as number[];
+    
+    for (let i = 0; i < dimensions; i++) {
+      const row = document.createElement('div');
+      row.className = 'node-vector-input-row';
+      
+      const label = document.createElement('span');
+      label.className = 'node-vector-component-label';
+      label.textContent = componentLabels[i];
+      row.appendChild(label);
+      
+      const input = document.createElement('input');
+      input.className = 'node-input-field node-vector-input-field';
+      input.type = 'number';
+      input.step = '0.1';
+      input.value = String(currentValue[i] ?? 0);
+      
+      input.addEventListener('change', () => {
+        const newValue = parseFloat(input.value) || 0;
+        if (!Array.isArray(node.values[socket.name])) {
+          node.values[socket.name] = Array(dimensions).fill(0);
+        }
+        (node.values[socket.name] as number[])[i] = newValue;
+        this.triggerShaderUpdate();
+      });
+      
+      input.addEventListener('mousedown', (e) => e.stopPropagation());
+      
+      row.appendChild(input);
+      wrapper.appendChild(row);
+    }
+    
+    return wrapper;
   }
 
   private createColorInput(socket: Socket, node: Node): HTMLElement {
@@ -671,7 +731,7 @@ export class NodeEditor {
       if (!rightSide) return;
 
       // Remove existing input field
-      const existingInput = rightSide.querySelector('.node-input-field, .node-color-input-wrapper');
+      const existingInput = rightSide.querySelector('.node-input-field, .node-color-input-wrapper, .node-vector-input-wrapper');
       if (existingInput) {
         existingInput.remove();
       }
