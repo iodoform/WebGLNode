@@ -1,8 +1,26 @@
-import type { Node, Connection, Socket, EditorState, DragState, ConnectionDragState, SocketType } from '../types';
-import { NodeFactory } from '../nodes/NodeFactory';
-import { nodeDefinitionLoader } from '../nodes/NodeDefinitionLoader';
+import type { Node, Socket, EditorState, DragState, ConnectionDragState } from '../types';
 import { WGSLGenerator } from '../nodes/WGSLGenerator';
+import { InputFieldRenderer } from '../infrastructure/rendering/InputFieldRenderer';
+import { NodeRenderer } from '../infrastructure/rendering/NodeRenderer';
+import { ConnectionRenderer } from '../infrastructure/rendering/ConnectionRenderer';
+import { MenuManager } from '../infrastructure/rendering/MenuManager';
+import { NodeEditorService } from '../application/services/NodeEditorService';
+import { InMemoryNodeRepository } from '../infrastructure/repositories/InMemoryNodeRepository';
+import { InMemoryConnectionRepository } from '../infrastructure/repositories/InMemoryConnectionRepository';
+import { Position } from '../domain/value-objects/Position';
+import { NodeId } from '../domain/value-objects/Id';
+import { ConnectionId } from '../domain/value-objects/Id';
+import { NodeAdapter } from '../infrastructure/adapters/NodeAdapter';
+import { ConnectionAdapter } from '../infrastructure/adapters/ConnectionAdapter';
+import { nodeDefinitionLoader } from '../nodes/NodeDefinitionLoader';
 
+/**
+ * ノードエディターのメインクラス
+ * 
+ * ノードエディター全体の状態管理と、各レンダラー（NodeRenderer、ConnectionRenderer、InputFieldRenderer、
+ * MenuManager）の調整を行います。マウスやキーボードのイベント処理、ノードや接続の追加・削除、
+ * パン・ズーム操作などを統合的に管理します。
+ */
 export class NodeEditor {
   private container: HTMLElement;
   private nodeContainer: HTMLElement;
@@ -13,13 +31,31 @@ export class NodeEditor {
   private connectionDrag: ConnectionDragState;
   private selectedConnectionId: string | null = null;
   
-  private addNodeMenu: HTMLElement | null = null;
   private onShaderUpdate?: (code: string) => void;
+
+  // DDD Services
+  private nodeRepository: InMemoryNodeRepository;
+  private connectionRepository: InMemoryConnectionRepository;
+  private nodeEditorService: NodeEditorService;
+
+  // Renderers
+  private inputFieldRenderer: InputFieldRenderer;
+  private nodeRenderer: NodeRenderer;
+  private connectionRenderer: ConnectionRenderer;
+  private menuManager: MenuManager;
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId);
     if (!container) throw new Error(`Container ${containerId} not found`);
     this.container = container;
+
+    // Initialize DDD repositories and services
+    this.nodeRepository = new InMemoryNodeRepository();
+    this.connectionRepository = new InMemoryConnectionRepository();
+    this.nodeEditorService = new NodeEditorService(
+      this.nodeRepository,
+      this.connectionRepository
+    );
 
     this.state = {
       nodes: new Map(),
@@ -51,6 +87,37 @@ export class NodeEditor {
     this.svgContainer.id = 'connections-svg';
     this.container.insertBefore(this.svgContainer, this.nodeContainer);
 
+    // Initialize renderers
+    this.inputFieldRenderer = new InputFieldRenderer(
+      (socketId) => this.isSocketConnected(socketId),
+      () => this.triggerShaderUpdate()
+    );
+
+    this.nodeRenderer = new NodeRenderer(
+      this.nodeContainer,
+      this.inputFieldRenderer,
+      (socketId) => this.isSocketConnected(socketId),
+      (socket, e) => this.handleSocketClick(socket, e),
+      (node, e) => this.handleNodeDragStart(e, node),
+      (node, e) => this.handleNodeClick(node, e)
+    );
+
+    this.connectionRenderer = new ConnectionRenderer(
+      this.svgContainer,
+      this.nodeContainer,
+      this.state.nodes,
+      () => this.state.zoom,
+      (connectionId) => this.handleConnectionClick(connectionId),
+      (connectionId) => this.deleteConnection(connectionId)
+    );
+
+    this.menuManager = new MenuManager(
+      this.container,
+      (definitionId, x, y) => this.addNode(definitionId, x, y),
+      () => this.state.pan,
+      () => this.state.zoom
+    );
+
     this.setupEventListeners();
     this.createDefaultNodes();
   }
@@ -71,9 +138,10 @@ export class NodeEditor {
     
     // Close menu on click outside
     document.addEventListener('click', (e) => {
-      if (this.addNodeMenu && !this.addNodeMenu.contains(e.target as HTMLElement)) {
-        this.closeAddNodeMenu();
+      if (this.menuManager.containsElement(e.target as HTMLElement)) {
+        return;
       }
+      this.menuManager.closeAddNodeMenu();
     });
 
     // Keyboard shortcuts
@@ -88,7 +156,7 @@ export class NodeEditor {
     // Clear connection selection when clicking on background
     if (this.selectedConnectionId) {
       this.selectedConnectionId = null;
-      this.updateConnectionSelection();
+      this.connectionRenderer.updateConnectionSelection(null);
     }
 
     this.dragState = {
@@ -115,16 +183,23 @@ export class NodeEditor {
       if (node) {
         const dx = (e.clientX - this.dragState.startX) / this.state.zoom;
         const dy = (e.clientY - this.dragState.startY) / this.state.zoom;
-        node.x = this.dragState.offsetX + dx;
-        node.y = this.dragState.offsetY + dy;
-        this.updateNodePosition(node);
-        this.updateConnections();
+        const newX = this.dragState.offsetX + dx;
+        const newY = this.dragState.offsetY + dy;
+        this.handleNodeMove(node.id, newX, newY);
+        this.nodeRenderer.updateNodePosition(node);
+        this.connectionRenderer.updateConnections(this.state.connections);
       }
     } else if (this.connectionDrag.isConnecting) {
       const svgRect = this.svgContainer.getBoundingClientRect();
       this.connectionDrag.currentX = (e.clientX - svgRect.left) / this.state.zoom;
       this.connectionDrag.currentY = (e.clientY - svgRect.top) / this.state.zoom;
-      this.updateConnectionPreview();
+      if (this.connectionDrag.fromSocket) {
+        this.connectionRenderer.updateConnectionPreview(
+          this.connectionDrag.fromSocket.id,
+          this.connectionDrag.currentX,
+          this.connectionDrag.currentY
+        );
+      }
     }
   }
 
@@ -136,7 +211,8 @@ export class NodeEditor {
         this.createConnection(this.connectionDrag.fromSocket, targetSocket);
       }
       this.connectionDrag.isConnecting = false;
-      this.removeConnectionPreview();
+      this.connectionRenderer.removeConnectionPreview();
+      this.container.classList.remove('connecting');
     }
 
     this.dragState.isDragging = false;
@@ -146,7 +222,7 @@ export class NodeEditor {
 
   private handleZoom(e: WheelEvent): void {
     // Don't zoom if scrolling in add-node menu
-    if (this.addNodeMenu && this.addNodeMenu.contains(e.target as HTMLElement)) {
+    if (this.menuManager.containsElement(e.target as HTMLElement)) {
       return;
     }
     
@@ -168,7 +244,7 @@ export class NodeEditor {
 
   private handleContextMenu(e: MouseEvent): void {
     e.preventDefault();
-    this.showAddNodeMenu(e.clientX, e.clientY);
+    this.menuManager.showAddNodeMenu(e.clientX, e.clientY);
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -183,7 +259,7 @@ export class NodeEditor {
     } else if (e.key === 'a' && e.shiftKey) {
       e.preventDefault();
       const rect = this.container.getBoundingClientRect();
-      this.showAddNodeMenu(rect.width / 2, rect.height / 2);
+      this.menuManager.showAddNodeMenu(rect.width / 2, rect.height / 2);
     }
   }
 
@@ -192,243 +268,37 @@ export class NodeEditor {
       `translate(${this.state.pan.x}px, ${this.state.pan.y}px) scale(${this.state.zoom})`;
     this.svgContainer.style.transform = 
       `translate(${this.state.pan.x}px, ${this.state.pan.y}px) scale(${this.state.zoom})`;
-    this.updateConnections();
-  }
-
-  private showAddNodeMenu(x: number, y: number): void {
-    this.closeAddNodeMenu();
-
-    const menu = document.createElement('div');
-    menu.className = 'add-node-menu';
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-
-    // Search box
-    const searchDiv = document.createElement('div');
-    searchDiv.className = 'add-node-menu-search';
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Search nodes...';
-    searchInput.addEventListener('input', () => {
-      this.updateNodeMenuList(menu, searchInput.value, x, y);
-    });
-    searchDiv.appendChild(searchInput);
-    menu.appendChild(searchDiv);
-
-    this.updateNodeMenuList(menu, '', x, y);
-
-    // Prevent wheel events from propagating to background (zoom)
-    menu.addEventListener('wheel', (e) => {
-      e.stopPropagation();
-    });
-
-    this.container.appendChild(menu);
-    this.addNodeMenu = menu;
-    
-    setTimeout(() => searchInput.focus(), 0);
-  }
-
-  private updateNodeMenuList(menu: HTMLElement, filter: string, menuX: number, menuY: number): void {
-    // Remove existing items (keep search box)
-    const items = menu.querySelectorAll('.add-node-category, .add-node-item');
-    items.forEach(item => item.remove());
-
-    const definitions = filter 
-      ? nodeDefinitionLoader.searchDefinitions(filter)
-      : nodeDefinitionLoader.getAllDefinitions();
-
-    const byCategory = new Map<string, typeof definitions>();
-    for (const def of definitions) {
-      const list = byCategory.get(def.category) || [];
-      list.push(def);
-      byCategory.set(def.category, list);
-    }
-
-    for (const [category, defs] of byCategory) {
-      const categoryEl = document.createElement('div');
-      categoryEl.className = 'add-node-category';
-      categoryEl.textContent = category;
-      menu.appendChild(categoryEl);
-
-      for (const def of defs) {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'add-node-item';
-        
-        const colorIndicator = document.createElement('div');
-        colorIndicator.className = 'node-color-indicator';
-        colorIndicator.style.backgroundColor = def.color;
-        itemEl.appendChild(colorIndicator);
-        
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = def.name;
-        itemEl.appendChild(nameSpan);
-
-        itemEl.addEventListener('click', () => {
-          const rect = this.container.getBoundingClientRect();
-          const x = (menuX - rect.left - this.state.pan.x) / this.state.zoom;
-          const y = (menuY - rect.top - this.state.pan.y) / this.state.zoom;
-          this.addNode(def.id, x, y);
-          this.closeAddNodeMenu();
-        });
-
-        menu.appendChild(itemEl);
-      }
-    }
-  }
-
-  private closeAddNodeMenu(): void {
-    if (this.addNodeMenu) {
-      this.addNodeMenu.remove();
-      this.addNodeMenu = null;
-    }
+    this.connectionRenderer.updateConnections(this.state.connections);
   }
 
   addNode(definitionId: string, x: number, y: number): Node | null {
-    const node = NodeFactory.createNode(definitionId, x, y);
-    if (!node) return null;
+    const definition = nodeDefinitionLoader.getDefinition(definitionId);
+    if (!definition) return null;
 
-    this.state.nodes.set(node.id, node);
-    this.renderNode(node);
+    const position = new Position(x, y);
+    const domainNode = this.nodeEditorService.addNode(definition, position);
+    
+    // Convert to legacy format for rendering
+    const legacyNode = NodeAdapter.toLegacyNode(domainNode);
+    this.state.nodes.set(legacyNode.id, legacyNode);
+    this.nodeRenderer.renderNode(legacyNode);
     this.triggerShaderUpdate();
     
-    return node;
+    return legacyNode;
   }
 
-  private renderNode(node: Node): void {
-    const definition = nodeDefinitionLoader.getDefinition(node.definitionId);
-    if (!definition) return;
-
-    const nodeEl = document.createElement('div');
-    nodeEl.className = 'node';
-    nodeEl.dataset.nodeId = node.id;
-    nodeEl.style.left = `${node.x}px`;
-    nodeEl.style.top = `${node.y}px`;
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'node-header';
-    header.style.borderTop = `3px solid ${definition.color}`;
+  private handleSocketClick(socket: Socket, e: MouseEvent): void {
+    e.stopPropagation();
     
-    const icon = document.createElement('div');
-    icon.className = 'node-icon';
-    icon.style.backgroundColor = definition.color;
-    header.appendChild(icon);
-    
-    const title = document.createElement('span');
-    title.textContent = definition.name;
-    header.appendChild(title);
-    
-    header.addEventListener('mousedown', (e) => this.handleNodeDragStart(e, node));
-    nodeEl.appendChild(header);
-
-    // Content
-    const content = document.createElement('div');
-    content.className = 'node-content';
-
-    // Special UI for color picker nodes
-    if (definition.customUI === 'colorPicker') {
-      const colorRow = document.createElement('div');
-      colorRow.className = 'node-row node-color-picker-row';
-      
-      const colorPicker = this.createNodeColorPicker(node);
-      colorRow.appendChild(colorPicker);
-      
-      // Add output socket
-      if (node.outputs[0]) {
-        colorRow.appendChild(this.createSocket(node.outputs[0], node));
-      }
-      
-      content.appendChild(colorRow);
-    } else {
-      // Create two-column layout: inputs (left) and outputs (right)
-      const columnsContainer = document.createElement('div');
-      columnsContainer.className = 'node-columns-container';
-      
-      // Left column: inputs
-      const inputColumn = document.createElement('div');
-      inputColumn.className = 'node-input-column';
-      
-      for (const input of node.inputs) {
-        const inputRow = document.createElement('div');
-        inputRow.className = 'node-input-row';
-        
-        // Socket + label
-        const socketWrapper = this.createSocket(input, node);
-        inputRow.appendChild(socketWrapper);
-        
-        // Input field or spacer (always present for alignment)
-        const rightSide = document.createElement('div');
-        rightSide.className = 'node-input-right-side';
-        if (!this.isSocketConnected(input.id)) {
-          rightSide.appendChild(this.createInputField(input, node));
-        }
-        inputRow.appendChild(rightSide);
-        
-        inputColumn.appendChild(inputRow);
-      }
-      
-      // Right column: outputs
-      const outputColumn = document.createElement('div');
-      outputColumn.className = 'node-output-column';
-      
-      for (const output of node.outputs) {
-        const outputRow = document.createElement('div');
-        outputRow.className = 'node-output-row';
-        outputRow.appendChild(this.createSocket(output, node));
-        outputColumn.appendChild(outputRow);
-      }
-      
-      columnsContainer.appendChild(inputColumn);
-      columnsContainer.appendChild(outputColumn);
-      content.appendChild(columnsContainer);
+    // If clicking on an input socket that already has a connection, disconnect it
+    if (socket.direction === 'input' && this.isSocketConnected(socket.id)) {
+      this.disconnectSocket(socket.id);
+      return;
     }
-
-    nodeEl.appendChild(content);
-
-    // Selection handling
-    nodeEl.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('.socket')) {
-        if (!e.shiftKey) {
-          this.state.selectedNodes.clear();
-        }
-        this.state.selectedNodes.add(node.id);
-        this.updateSelectionDisplay();
-      }
-    });
-
-    this.nodeContainer.appendChild(nodeEl);
-  }
-
-  private createSocket(socket: Socket, node: Node): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'socket-wrapper';
     
-    const socketEl = document.createElement('div');
-    socketEl.className = `socket socket-${socket.direction}`;
-    socketEl.dataset.socketId = socket.id;
-    socketEl.dataset.nodeId = node.id;
-    socketEl.dataset.type = socket.type;
-    socketEl.title = `${socket.name} (${socket.type})`;
-
-    if (this.isSocketConnected(socket.id)) {
-      socketEl.classList.add('connected');
-    }
-
-    socketEl.addEventListener('mousedown', (e) => {
-      e.stopPropagation();
-      
-      // If clicking on an input socket that already has a connection, disconnect it
-      if (socket.direction === 'input' && this.isSocketConnected(socket.id)) {
-        this.disconnectSocket(socket.id);
-        // Prevent starting a new connection drag
-        return;
-      }
-      
+    if (e.type === 'mousedown') {
       this.startConnectionDrag(socket);
-    });
-
-    socketEl.addEventListener('mouseup', (e) => {
-      e.stopPropagation();
+    } else if (e.type === 'mouseup') {
       // Only create connection if we're actually connecting (not just disconnecting)
       if (this.connectionDrag.isConnecting && this.connectionDrag.fromSocket) {
         // Don't create connection if clicking on the same socket we started from
@@ -436,185 +306,10 @@ export class NodeEditor {
           this.createConnection(this.connectionDrag.fromSocket, socket);
         }
         this.connectionDrag.isConnecting = false;
-        this.removeConnectionPreview();
+        this.connectionRenderer.removeConnectionPreview();
+        this.container.classList.remove('connecting');
       }
-    });
-
-    const label = document.createElement('span');
-    label.className = 'socket-label';
-    label.textContent = socket.name;
-
-    if (socket.direction === 'input') {
-      wrapper.appendChild(socketEl);
-      wrapper.appendChild(label);
-    } else {
-      wrapper.appendChild(label);
-      wrapper.appendChild(socketEl);
     }
-
-    return wrapper;
-  }
-
-  private createInputField(socket: Socket, node: Node): HTMLElement {
-    // Special handling for color type - show color picker
-    if (socket.type === 'color') {
-      return this.createColorInput(socket, node);
-    }
-    
-    // Handle vector types (vec2, vec3, vec4) - show multiple input fields
-    const vectorDimensions: Record<string, number> = {
-      'vec2': 2,
-      'vec3': 3,
-      'vec4': 4,
-    };
-    
-    const dimensions = vectorDimensions[socket.type];
-    if (dimensions) {
-      return this.createVectorInput(socket, node, dimensions);
-    }
-    
-    // Single float input
-    const input = document.createElement('input');
-    input.className = 'node-input-field';
-    input.type = 'number';
-    input.step = '0.1';
-    
-    const value = node.values[socket.name];
-    if (Array.isArray(value)) {
-      input.value = String(value[0] ?? 0);
-    } else {
-      input.value = String(value ?? 0);
-    }
-
-    input.addEventListener('change', () => {
-      const newValue = parseFloat(input.value) || 0;
-      if (Array.isArray(node.values[socket.name])) {
-        (node.values[socket.name] as number[])[0] = newValue;
-      } else {
-        node.values[socket.name] = newValue;
-      }
-      this.triggerShaderUpdate();
-    });
-
-    input.addEventListener('mousedown', (e) => e.stopPropagation());
-
-    return input;
-  }
-
-  private createVectorInput(socket: Socket, node: Node, dimensions: number): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'node-vector-input-wrapper';
-    
-    const componentLabels = ['X', 'Y', 'Z', 'W'];
-    
-    // Initialize value as array if not already
-    if (!Array.isArray(node.values[socket.name])) {
-      const singleValue = node.values[socket.name] ?? 0;
-      node.values[socket.name] = Array(dimensions).fill(singleValue);
-    }
-    
-    const currentValue = node.values[socket.name] as number[];
-    
-    for (let i = 0; i < dimensions; i++) {
-      const row = document.createElement('div');
-      row.className = 'node-vector-input-row';
-      
-      const label = document.createElement('span');
-      label.className = 'node-vector-component-label';
-      label.textContent = componentLabels[i];
-      row.appendChild(label);
-      
-      const input = document.createElement('input');
-      input.className = 'node-input-field node-vector-input-field';
-      input.type = 'number';
-      input.step = '0.1';
-      input.value = String(currentValue[i] ?? 0);
-      
-      input.addEventListener('change', () => {
-        const newValue = parseFloat(input.value) || 0;
-        if (!Array.isArray(node.values[socket.name])) {
-          node.values[socket.name] = Array(dimensions).fill(0);
-        }
-        (node.values[socket.name] as number[])[i] = newValue;
-        this.triggerShaderUpdate();
-      });
-      
-      input.addEventListener('mousedown', (e) => e.stopPropagation());
-      
-      row.appendChild(input);
-      wrapper.appendChild(row);
-    }
-    
-    return wrapper;
-  }
-
-  private createColorInput(socket: Socket, node: Node): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'node-color-input-wrapper';
-    
-    const colorInput = document.createElement('input');
-    colorInput.type = 'color';
-    colorInput.className = 'node-color-picker';
-    
-    // Get current color value
-    const value = node.values[socket.name];
-    let r = 0, g = 0, b = 0;
-    if (Array.isArray(value)) {
-      r = Math.round(Math.max(0, Math.min(1, value[0] ?? 0)) * 255);
-      g = Math.round(Math.max(0, Math.min(1, value[1] ?? 0)) * 255);
-      b = Math.round(Math.max(0, Math.min(1, value[2] ?? 0)) * 255);
-    }
-    colorInput.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    
-    colorInput.addEventListener('input', () => {
-      const hex = colorInput.value;
-      const r = parseInt(hex.slice(1, 3), 16) / 255;
-      const g = parseInt(hex.slice(3, 5), 16) / 255;
-      const b = parseInt(hex.slice(5, 7), 16) / 255;
-      node.values[socket.name] = [r, g, b];
-      this.triggerShaderUpdate();
-    });
-
-    colorInput.addEventListener('mousedown', (e) => e.stopPropagation());
-    colorInput.addEventListener('click', (e) => e.stopPropagation());
-
-    wrapper.appendChild(colorInput);
-    return wrapper;
-  }
-
-  private createNodeColorPicker(node: Node): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'node-color-picker-wrapper';
-    
-    const colorInput = document.createElement('input');
-    colorInput.type = 'color';
-    colorInput.className = 'node-large-color-picker';
-    
-    // Initialize color value if not set
-    if (!node.values['_color']) {
-      node.values['_color'] = [1, 1, 1];
-    }
-    
-    const value = node.values['_color'] as number[];
-    const r = Math.round(Math.max(0, Math.min(1, value[0])) * 255);
-    const g = Math.round(Math.max(0, Math.min(1, value[1])) * 255);
-    const b = Math.round(Math.max(0, Math.min(1, value[2])) * 255);
-    colorInput.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    
-    colorInput.addEventListener('input', () => {
-      const hex = colorInput.value;
-      const r = parseInt(hex.slice(1, 3), 16) / 255;
-      const g = parseInt(hex.slice(3, 5), 16) / 255;
-      const b = parseInt(hex.slice(5, 7), 16) / 255;
-      node.values['_color'] = [r, g, b];
-      this.triggerShaderUpdate();
-    });
-
-    colorInput.addEventListener('mousedown', (e) => e.stopPropagation());
-    colorInput.addEventListener('click', (e) => e.stopPropagation());
-
-    wrapper.appendChild(colorInput);
-    return wrapper;
   }
 
   private handleNodeDragStart(e: MouseEvent, node: Node): void {
@@ -630,11 +325,30 @@ export class NodeEditor {
     };
   }
 
-  private updateNodePosition(node: Node): void {
-    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${node.id}"]`) as HTMLElement;
-    if (nodeEl) {
-      nodeEl.style.left = `${node.x}px`;
-      nodeEl.style.top = `${node.y}px`;
+  private handleNodeClick(node: Node, e: MouseEvent): void {
+    if (!(e.target as HTMLElement).closest('.socket')) {
+      if (!e.shiftKey) {
+        this.state.selectedNodes.clear();
+      }
+      this.state.selectedNodes.add(node.id);
+      this.nodeRenderer.updateSelectionDisplay(this.state.selectedNodes);
+    }
+  }
+
+  private handleNodeMove(nodeId: string, newX: number, newY: number): void {
+    try {
+      const nodeIdObj = new NodeId(nodeId);
+      const newPosition = new Position(newX, newY);
+      this.nodeEditorService.moveNode(nodeIdObj, newPosition);
+      
+      // Update legacy state
+      const node = this.state.nodes.get(nodeId);
+      if (node) {
+        node.x = newX;
+        node.y = newY;
+      }
+    } catch (error) {
+      console.warn('Failed to move node:', error);
     }
   }
 
@@ -649,53 +363,54 @@ export class NodeEditor {
   }
 
   private createConnection(from: Socket, to: Socket): void {
-    // Validate connection
-    if (from.direction === to.direction) return;
-    if (from.nodeId === to.nodeId) return;
-    
-    // Ensure from is output, to is input
-    let outputSocket = from;
-    let inputSocket = to;
-    if (from.direction === 'input') {
-      outputSocket = to;
-      inputSocket = from;
-    }
+    try {
+      // Convert legacy sockets to domain entities
+      const fromNode = this.state.nodes.get(from.nodeId);
+      const toNode = this.state.nodes.get(to.nodeId);
+      if (!fromNode || !toNode) return;
 
-    // Type compatibility check
-    if (!this.areTypesCompatible(outputSocket.type, inputSocket.type)) {
-      console.warn(`Incompatible types: ${outputSocket.type} -> ${inputSocket.type}`);
-      return;
-    }
+      const domainFromNode = NodeAdapter.toDomainNode(fromNode);
+      const domainToNode = NodeAdapter.toDomainNode(toNode);
+      
+      const domainFromSocket = domainFromNode.getSocket(from.id);
+      const domainToSocket = domainToNode.getSocket(to.id);
+      
+      if (!domainFromSocket || !domainToSocket) return;
 
-    // Remove existing connection to this input
-    for (const [id, conn] of this.state.connections) {
-      if (conn.toSocketId === inputSocket.id) {
-        this.state.connections.delete(id);
+      // Use domain service to create connection
+      const domainConnection = this.nodeEditorService.createConnection(
+        domainFromSocket.id,
+        domainToSocket.id
+      );
+
+      // Convert to legacy format for rendering
+      const legacyConnection = ConnectionAdapter.toLegacyConnection(domainConnection);
+      this.state.connections.set(legacyConnection.id, legacyConnection);
+      
+      // Sync connections from repository
+      this.syncConnectionsFromRepository();
+      this.connectionRenderer.updateConnections(this.state.connections);
+      this.nodeRenderer.updateSocketDisplay(from.id, true);
+      this.nodeRenderer.updateSocketDisplay(to.id, true);
+      
+      if (toNode) {
+        this.nodeRenderer.updateNodeInputFields(toNode);
       }
+      
+      this.triggerShaderUpdate();
+    } catch (error) {
+      console.warn('Failed to create connection:', error);
     }
-
-    const connectionId = `conn_${Date.now()}`;
-    const connection: Connection = {
-      id: connectionId,
-      fromNodeId: outputSocket.nodeId,
-      fromSocketId: outputSocket.id,
-      toNodeId: inputSocket.nodeId,
-      toSocketId: inputSocket.id,
-    };
-
-    this.state.connections.set(connectionId, connection);
-    this.updateConnections();
-    this.updateSocketDisplay(outputSocket.id, true);
-    this.updateSocketDisplay(inputSocket.id, true);
-    this.updateNodeInputFields(inputSocket.nodeId);
-    this.triggerShaderUpdate();
   }
 
-  private areTypesCompatible(from: SocketType, to: SocketType): boolean {
-    if (from === to) return true;
-    if (from === 'color' && to === 'vec3') return true;
-    if (from === 'vec3' && to === 'color') return true;
-    return false;
+  private syncConnectionsFromRepository(): void {
+    // Sync connections from repository to legacy state
+    const domainConnections = this.nodeEditorService.getAllConnections();
+    this.state.connections.clear();
+    for (const domainConn of domainConnections) {
+      const legacyConn = ConnectionAdapter.toLegacyConnection(domainConn);
+      this.state.connections.set(legacyConn.id, legacyConn);
+    }
   }
 
   private isSocketConnected(socketId: string): boolean {
@@ -707,44 +422,54 @@ export class NodeEditor {
     return false;
   }
 
-  private updateSocketDisplay(socketId: string, connected: boolean): void {
-    const socketEl = this.nodeContainer.querySelector(`[data-socket-id="${socketId}"]`);
-    if (socketEl) {
-      socketEl.classList.toggle('connected', connected);
-    }
+  private handleConnectionClick(connectionId: string): void {
+    this.selectedConnectionId = connectionId;
+    this.connectionRenderer.updateConnectionSelection(connectionId);
   }
 
-  private updateNodeInputFields(nodeId: string): void {
-    const node = this.state.nodes.get(nodeId);
-    if (!node) return;
-
-    const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeId}"]`);
-    if (!nodeEl) return;
-
-    // Find all input rows and update their input fields
-    const inputRows = nodeEl.querySelectorAll('.node-input-row');
-    inputRows.forEach((row, index) => {
-      const input = node.inputs[index];
-      if (!input) return;
-
-      const rightSide = row.querySelector('.node-input-right-side');
-      if (!rightSide) return;
-
-      // Remove existing input field
-      const existingInput = rightSide.querySelector('.node-input-field, .node-color-input-wrapper, .node-vector-input-wrapper');
-      if (existingInput) {
-        existingInput.remove();
+  private disconnectSocket(socketId: string): void {
+    for (const [id, conn] of this.state.connections) {
+      if (conn.fromSocketId === socketId || conn.toSocketId === socketId) {
+        this.deleteConnection(id);
+        break; // Only disconnect one connection per socket
       }
-
-      // Add input field if not connected
-      if (!this.isSocketConnected(input.id)) {
-        if (input.type === 'color') {
-          rightSide.appendChild(this.createColorInput(input, node));
-        } else {
-          rightSide.appendChild(this.createInputField(input, node));
-        }
+    }
+  }
+  
+  private deleteConnection(connectionId: string): void {
+    const connection = this.state.connections.get(connectionId);
+    if (!connection) return;
+    
+    try {
+      // Use domain service to delete connection
+      const domainConnectionId = new ConnectionId(connectionId);
+      this.nodeEditorService.deleteConnection(domainConnectionId);
+      
+      this.state.connections.delete(connectionId);
+      this.connectionRenderer.updateConnections(this.state.connections);
+      this.nodeRenderer.updateSocketDisplay(
+        connection.fromSocketId,
+        this.isSocketConnected(connection.fromSocketId)
+      );
+      this.nodeRenderer.updateSocketDisplay(
+        connection.toSocketId,
+        this.isSocketConnected(connection.toSocketId)
+      );
+      
+      // Update input fields for the node that had the input connection
+      const toNode = this.state.nodes.get(connection.toNodeId);
+      if (toNode) {
+        this.nodeRenderer.updateNodeInputFields(toNode);
       }
-    });
+      
+      this.triggerShaderUpdate();
+      
+      if (this.selectedConnectionId === connectionId) {
+        this.selectedConnectionId = null;
+      }
+    } catch (error) {
+      console.warn('Failed to delete connection:', error);
+    }
   }
 
   private getSocketAtPosition(x: number, y: number): Socket | undefined {
@@ -764,219 +489,54 @@ export class NodeEditor {
     return undefined;
   }
 
-  private updateConnections(): void {
-    // Clear existing paths
-    while (this.svgContainer.firstChild) {
-      this.svgContainer.removeChild(this.svgContainer.firstChild);
-    }
-
-    for (const connection of this.state.connections.values()) {
-      this.renderConnection(connection);
-    }
-    
-    this.updateConnectionSelection();
-  }
-  
-  private updateConnectionSelection(): void {
-    const paths = this.svgContainer.querySelectorAll('.connection');
-    paths.forEach((path) => {
-      const connectionId = path.getAttribute('data-connection-id');
-      path.classList.toggle('selected', connectionId === this.selectedConnectionId);
-    });
-  }
-  
-  private disconnectSocket(socketId: string): void {
-    for (const [id, conn] of this.state.connections) {
-      if (conn.fromSocketId === socketId || conn.toSocketId === socketId) {
-        this.deleteConnection(id);
-        break; // Only disconnect one connection per socket
-      }
-    }
-  }
-  
-  private deleteConnection(connectionId: string): void {
-    const connection = this.state.connections.get(connectionId);
-    if (!connection) return;
-    
-    this.state.connections.delete(connectionId);
-    this.updateConnections();
-    this.updateSocketDisplay(connection.fromSocketId, this.isSocketConnected(connection.fromSocketId));
-    this.updateSocketDisplay(connection.toSocketId, this.isSocketConnected(connection.toSocketId));
-    
-    // Update input fields for the node that had the input connection
-    const toNode = this.state.nodes.get(connection.toNodeId);
-    if (toNode) {
-      this.updateNodeInputFields(toNode.id);
-    }
-    
-    this.triggerShaderUpdate();
-    
-    if (this.selectedConnectionId === connectionId) {
-      this.selectedConnectionId = null;
-    }
-  }
-
-  private renderConnection(connection: Connection): void {
-    const fromEl = this.nodeContainer.querySelector(
-      `[data-socket-id="${connection.fromSocketId}"]`
-    );
-    const toEl = this.nodeContainer.querySelector(
-      `[data-socket-id="${connection.toSocketId}"]`
-    );
-
-    if (!fromEl || !toEl) return;
-
-    const fromRect = fromEl.getBoundingClientRect();
-    const toRect = toEl.getBoundingClientRect();
-    const svgRect = this.svgContainer.getBoundingClientRect();
-
-    // Convert screen coordinates to SVG local coordinates
-    // Both nodeContainer and svgContainer have the same transform, so we can use their relative positions
-    const x1 = (fromRect.left + fromRect.width / 2 - svgRect.left) / this.state.zoom;
-    const y1 = (fromRect.top + fromRect.height / 2 - svgRect.top) / this.state.zoom;
-    const x2 = (toRect.left + toRect.width / 2 - svgRect.left) / this.state.zoom;
-    const y2 = (toRect.top + toRect.height / 2 - svgRect.top) / this.state.zoom;
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    const dx = Math.abs(x2 - x1) * 0.5;
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
-    path.classList.add('connection');
-    path.setAttribute('data-connection-id', connection.id);
-    
-    // Color based on socket type
-    const fromNode = this.state.nodes.get(connection.fromNodeId);
-    const fromSocket = fromNode?.outputs.find(s => s.id === connection.fromSocketId);
-    const color = this.getSocketColor(fromSocket?.type || 'float');
-    path.style.stroke = color;
-    
-    // Allow selection and deletion
-    path.style.pointerEvents = 'stroke';
-    path.style.cursor = 'pointer';
-    
-    // Click to select
-    path.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.selectedConnectionId = connection.id;
-      this.updateConnectionSelection();
-    });
-    
-    // Double-click to delete
-    path.addEventListener('dblclick', () => {
-      this.deleteConnection(connection.id);
-    });
-    
-    // Right-click to delete
-    path.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.deleteConnection(connection.id);
-    });
-
-    this.svgContainer.appendChild(path);
-  }
-
-  private getSocketColor(type: SocketType): string {
-    const colors: Record<SocketType, string> = {
-      'float': '#a1a1a1',
-      'vec2': '#63c7ff',
-      'vec3': '#6363ff',
-      'vec4': '#cc63ff',
-      'color': '#ffcc00',
-      'sampler': '#ff6b6b',
-      'texture2d': '#4ecdc4',
-    };
-    return colors[type] || '#888888';
-  }
-
-  private updateConnectionPreview(): void {
-    this.removeConnectionPreview();
-
-    if (!this.connectionDrag.fromSocket) return;
-
-    const fromEl = this.nodeContainer.querySelector(
-      `[data-socket-id="${this.connectionDrag.fromSocket.id}"]`
-    );
-    if (!fromEl) return;
-
-    const fromRect = fromEl.getBoundingClientRect();
-    const svgRect = this.svgContainer.getBoundingClientRect();
-
-    // Convert screen coordinates to SVG local coordinates
-    const x1 = (fromRect.left + fromRect.width / 2 - svgRect.left) / this.state.zoom;
-    const y1 = (fromRect.top + fromRect.height / 2 - svgRect.top) / this.state.zoom;
-    const x2 = this.connectionDrag.currentX;
-    const y2 = this.connectionDrag.currentY;
-
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    const dx = Math.abs(x2 - x1) * 0.5;
-    path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
-    path.classList.add('connection', 'connection-preview');
-    path.style.stroke = this.getSocketColor(this.connectionDrag.fromSocket.type);
-
-    this.svgContainer.appendChild(path);
-  }
-
-  private removeConnectionPreview(): void {
-    const preview = this.svgContainer.querySelector('.connection-preview');
-    if (preview) {
-      preview.remove();
-    }
-    this.container.classList.remove('connecting');
-  }
-
-  private updateSelectionDisplay(): void {
-    const nodes = this.nodeContainer.querySelectorAll('.node');
-    nodes.forEach(nodeEl => {
-      const nodeId = (nodeEl as HTMLElement).dataset.nodeId;
-      if (nodeId) {
-        nodeEl.classList.toggle('selected', this.state.selectedNodes.has(nodeId));
-      }
-    });
-  }
-
   private deleteSelectedNodes(): void {
-    for (const nodeId of this.state.selectedNodes) {
+    for (const nodeIdStr of this.state.selectedNodes) {
       // Don't delete output node
-      const node = this.state.nodes.get(nodeId);
+      const node = this.state.nodes.get(nodeIdStr);
       if (node?.definitionId === 'output_color') continue;
 
-      // Remove related connections
-      for (const [connId, conn] of this.state.connections) {
-        if (conn.fromNodeId === nodeId || conn.toNodeId === nodeId) {
-          this.state.connections.delete(connId);
+      try {
+        // Use domain service to delete node
+        const nodeId = new NodeId(nodeIdStr);
+        this.nodeEditorService.deleteNode(nodeId);
+        
+        // Remove related connections
+        for (const [connId, conn] of this.state.connections) {
+          if (conn.fromNodeId === nodeIdStr || conn.toNodeId === nodeIdStr) {
+            this.state.connections.delete(connId);
+          }
         }
-      }
 
-      // Remove node
-      this.state.nodes.delete(nodeId);
-      const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeId}"]`);
-      if (nodeEl) nodeEl.remove();
+        // Remove node
+        this.state.nodes.delete(nodeIdStr);
+        const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeIdStr}"]`);
+        if (nodeEl) nodeEl.remove();
+      } catch (error) {
+        console.warn('Failed to delete node:', error);
+      }
     }
 
     this.state.selectedNodes.clear();
-    this.updateConnections();
+    this.connectionRenderer.updateConnections(this.state.connections);
     this.triggerShaderUpdate();
   }
 
   private triggerShaderUpdate(): void {
+    // Convert domain entities to legacy format for WGSLGenerator
+    // (WGSLGenerator still uses legacy types)
     const code = WGSLGenerator.generate(this.state.nodes, this.state.connections);
     this.onShaderUpdate?.(code);
   }
 
   private createDefaultNodes(): void {
     // Create UV input node
-    const uvNode = this.addNode('input_uv', 50, 100);
+    this.addNode('input_uv', 50, 100);
     
     // Create time node
     this.addNode('input_time', 50, 250);
     
     // Create output node
-    const outputNode = this.addNode('output_color', 500, 150);
-
-    // Simple default connection: UV.x -> Output color (as grayscale)
-    if (uvNode && outputNode) {
-      // We'll let users make their own connections
-    }
+    this.addNode('output_color', 500, 150);
   }
 
   getState(): EditorState {
@@ -987,4 +547,3 @@ export class NodeEditor {
     return WGSLGenerator.generate(this.state.nodes, this.state.connections);
   }
 }
-

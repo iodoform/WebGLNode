@@ -33,7 +33,6 @@ export interface Socket {
   type: SocketType;
   direction: SocketDirection;
   value?: number | number[];
-  connectedTo?: string; // socket id
 }
 
 // Runtime node instance
@@ -63,13 +62,6 @@ export interface EditorState {
   selectedNodes: Set<string>;
   pan: { x: number; y: number };
   zoom: number;
-}
-
-// WGSL generation context
-export interface WGSLContext {
-  uniforms: string[];
-  functions: string[];
-  mainBody: string[];
 }
 
 // Event types

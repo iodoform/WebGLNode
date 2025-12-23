@@ -58,28 +58,5 @@ export class NodeFactory {
     }));
   }
 
-  static cloneNode(node: Node, offsetX = 50, offsetY = 50): Node {
-    const newNodeId = generateNodeId();
-    
-    return {
-      id: newNodeId,
-      definitionId: node.definitionId,
-      x: node.x + offsetX,
-      y: node.y + offsetY,
-      inputs: node.inputs.map(socket => ({
-        ...socket,
-        id: generateSocketId(),
-        nodeId: newNodeId,
-        connectedTo: undefined,
-      })),
-      outputs: node.outputs.map(socket => ({
-        ...socket,
-        id: generateSocketId(),
-        nodeId: newNodeId,
-        connectedTo: undefined,
-      })),
-      values: { ...node.values },
-    };
-  }
 }
 
