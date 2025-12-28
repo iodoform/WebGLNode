@@ -12,7 +12,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a + b; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a + b; }",
+      "webgl": "float node_{{id}}(float a, float b) { return a + b; }"
+    }
   },
   {
     "id": "math_subtract",
@@ -27,7 +30,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a - b; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a - b; }",
+      "webgl": "float node_{{id}}(float a, float b) { return a - b; }"
+    }
   },
   {
     "id": "math_multiply",
@@ -42,7 +48,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a * b; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a * b; }",
+      "webgl": "float node_{{id}}(float a, float b) { return a * b; }"
+    }
   },
   {
     "id": "math_divide",
@@ -57,7 +66,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a / max(b, 0.0001); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a / max(b, 0.0001); }",
+      "webgl": "float node_{{id}}(float a, float b) { return a / max(b, 0.0001); }"
+    }
   },
   {
     "id": "math_sin",
@@ -71,7 +83,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return sin(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return sin(v); }",
+      "webgl": "float node_{{id}}(float v) { return sin(v); }"
+    }
   },
   {
     "id": "math_cos",
@@ -85,7 +100,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return cos(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return cos(v); }",
+      "webgl": "float node_{{id}}(float v) { return cos(v); }"
+    }
   },
   {
     "id": "math_abs",
@@ -99,7 +117,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return abs(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return abs(v); }",
+      "webgl": "float node_{{id}}(float v) { return abs(v); }"
+    }
   },
   {
     "id": "math_fract",
@@ -113,7 +134,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return fract(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return fract(v); }",
+      "webgl": "float node_{{id}}(float v) { return fract(v); }"
+    }
   },
   {
     "id": "math_floor",
@@ -127,7 +151,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return floor(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return floor(v); }",
+      "webgl": "float node_{{id}}(float v) { return floor(v); }"
+    }
   },
   {
     "id": "math_ceil",
@@ -141,7 +168,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return ceil(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return ceil(v); }",
+      "webgl": "float node_{{id}}(float v) { return ceil(v); }"
+    }
   },
   {
     "id": "math_pow",
@@ -156,7 +186,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(base: f32, exp: f32) -> f32 { return pow(abs(base), exp); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(base: f32, exp: f32) -> f32 { return pow(abs(base), exp); }",
+      "webgl": "float node_{{id}}(float base, float exp) { return pow(abs(base), exp); }"
+    }
   },
   {
     "id": "math_sqrt",
@@ -170,7 +203,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return sqrt(max(v, 0.0)); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return sqrt(max(v, 0.0)); }",
+      "webgl": "float node_{{id}}(float v) { return sqrt(max(v, 0.0)); }"
+    }
   },
   {
     "id": "math_mix",
@@ -186,7 +222,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: f32, b: f32, t: f32) -> f32 { return mix(a, b, t); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: f32, b: f32, t: f32) -> f32 { return mix(a, b, t); }",
+      "webgl": "float node_{{id}}(float a, float b, float t) { return mix(a, b, t); }"
+    }
   },
   {
     "id": "math_clamp",
@@ -202,7 +241,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32, minVal: f32, maxVal: f32) -> f32 { return clamp(v, minVal, maxVal); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32, minVal: f32, maxVal: f32) -> f32 { return clamp(v, minVal, maxVal); }",
+      "webgl": "float node_{{id}}(float v, float minVal, float maxVal) { return clamp(v, minVal, maxVal); }"
+    }
   },
   {
     "id": "math_smoothstep",
@@ -218,7 +260,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(edge0: f32, edge1: f32, x: f32) -> f32 { return smoothstep(edge0, edge1, x); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(edge0: f32, edge1: f32, x: f32) -> f32 { return smoothstep(edge0, edge1, x); }",
+      "webgl": "float node_{{id}}(float edge0, float edge1, float x) { return smoothstep(edge0, edge1, x); }"
+    }
   },
   {
     "id": "math_step",
@@ -233,7 +278,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(edge: f32, x: f32) -> f32 { return step(edge, x); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(edge: f32, x: f32) -> f32 { return step(edge, x); }",
+      "webgl": "float node_{{id}}(float edge, float x) { return step(edge, x); }"
+    }
   },
   {
     "id": "math_mod",
@@ -248,7 +296,10 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a - b * floor(a / max(b, 0.0001)); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: f32, b: f32) -> f32 { return a - b * floor(a / max(b, 0.0001)); }",
+      "webgl": "float node_{{id}}(float a, float b) { return mod(a, max(b, 0.0001)); }"
+    }
   },
   {
     "id": "math_atan2",
@@ -263,7 +314,9 @@
     "outputs": [
       { "name": "Result", "type": "float" }
     ],
-    "code": "fn node_{{id}}(y: f32, x: f32) -> f32 { return atan2(y, x); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(y: f32, x: f32) -> f32 { return atan2(y, x); }",
+      "webgl": "float node_{{id}}(float y, float x) { return atan(y, x); }"
+    }
   }
 ]
-

@@ -1,6 +1,7 @@
 import type { EditorState, DragState, ConnectionDragState } from './types';
 import { Node } from '../domain/entities/Node';
 import { Socket } from '../domain/entities/Socket';
+import { IShaderGenerator } from '../infrastructure/shader/IShaderGenerator';
 import { WGSLGenerator } from '../infrastructure/shader/WGSLGenerator';
 import { InputFieldRenderer } from '../infrastructure/rendering/InputFieldRenderer';
 import { NodeRenderer } from '../infrastructure/rendering/NodeRenderer';
@@ -47,10 +48,16 @@ export class NodeEditor {
   private connectionRenderer: ConnectionRenderer;
   private menuManager: MenuManager;
 
-  constructor(containerId: string) {
+  // Shader generator (injectable for WebGPU/WebGL support)
+  private shaderGenerator: IShaderGenerator;
+
+  constructor(containerId: string, shaderGenerator?: IShaderGenerator) {
     const container = document.getElementById(containerId);
     if (!container) throw new Error(`Container ${containerId} not found`);
     this.container = container;
+
+    // Initialize shader generator (use provided or default to WGSL)
+    this.shaderGenerator = shaderGenerator || new WGSLGenerator();
 
     // Initialize DDD repositories and services
     this.nodeRepository = new InMemoryNodeRepository();
@@ -554,7 +561,7 @@ export class NodeEditor {
     // Get domain entities from repository and generate shader
     const domainNodes = this.nodeEditorService.getAllNodes();
     const domainConnections = this.nodeEditorService.getAllConnections();
-    const code = WGSLGenerator.generate(domainNodes, domainConnections);
+    const code = this.shaderGenerator.generate(domainNodes, domainConnections);
     this.onShaderUpdate?.(code);
   }
 
@@ -577,6 +584,14 @@ export class NodeEditor {
     // Get domain entities from repository and generate shader
     const domainNodes = this.nodeEditorService.getAllNodes();
     const domainConnections = this.nodeEditorService.getAllConnections();
-    return WGSLGenerator.generate(domainNodes, domainConnections);
+    return this.shaderGenerator.generate(domainNodes, domainConnections);
+  }
+
+  /**
+   * シェーダージェネレーターを設定
+   */
+  setShaderGenerator(generator: IShaderGenerator): void {
+    this.shaderGenerator = generator;
+    this.triggerShaderUpdate();
   }
 }

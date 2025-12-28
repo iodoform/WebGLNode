@@ -12,7 +12,10 @@
     "outputs": [
       { "name": "Vector", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }",
+      "webgl": "vec2 node_{{id}}(float x, float y) { return vec2(x, y); }"
+    }
   },
   {
     "id": "vec_combine3",
@@ -28,7 +31,10 @@
     "outputs": [
       { "name": "Vector", "type": "vec3" }
     ],
-    "code": "fn node_{{id}}(x: f32, y: f32, z: f32) -> vec3f { return vec3f(x, y, z); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(x: f32, y: f32, z: f32) -> vec3f { return vec3f(x, y, z); }",
+      "webgl": "vec3 node_{{id}}(float x, float y, float z) { return vec3(x, y, z); }"
+    }
   },
   {
     "id": "vec_combine4",
@@ -45,7 +51,10 @@
     "outputs": [
       { "name": "Vector", "type": "vec4" }
     ],
-    "code": "fn node_{{id}}(x: f32, y: f32, z: f32, w: f32) -> vec4f { return vec4f(x, y, z, w); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(x: f32, y: f32, z: f32, w: f32) -> vec4f { return vec4f(x, y, z, w); }",
+      "webgl": "vec4 node_{{id}}(float x, float y, float z, float w) { return vec4(x, y, z, w); }"
+    }
   },
   {
     "id": "vec_separate2",
@@ -60,7 +69,10 @@
       { "name": "X", "type": "float" },
       { "name": "Y", "type": "float" }
     ],
-    "code": "fn node_{{id}}_x(v: vec2f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec2f) -> f32 { return v.y; }"
+    "code": {
+      "webgpu": "fn node_{{id}}_x(v: vec2f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec2f) -> f32 { return v.y; }",
+      "webgl": "float node_{{id}}_x(vec2 v) { return v.x; }\nfloat node_{{id}}_y(vec2 v) { return v.y; }"
+    }
   },
   {
     "id": "vec_separate3",
@@ -76,7 +88,10 @@
       { "name": "Y", "type": "float" },
       { "name": "Z", "type": "float" }
     ],
-    "code": "fn node_{{id}}_x(v: vec3f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec3f) -> f32 { return v.y; }\nfn node_{{id}}_z(v: vec3f) -> f32 { return v.z; }"
+    "code": {
+      "webgpu": "fn node_{{id}}_x(v: vec3f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec3f) -> f32 { return v.y; }\nfn node_{{id}}_z(v: vec3f) -> f32 { return v.z; }",
+      "webgl": "float node_{{id}}_x(vec3 v) { return v.x; }\nfloat node_{{id}}_y(vec3 v) { return v.y; }\nfloat node_{{id}}_z(vec3 v) { return v.z; }"
+    }
   },
   {
     "id": "vec_length",
@@ -90,7 +105,10 @@
     "outputs": [
       { "name": "Length", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: vec2f) -> f32 { return length(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec2f) -> f32 { return length(v); }",
+      "webgl": "float node_{{id}}(vec2 v) { return length(v); }"
+    }
   },
   {
     "id": "vec_normalize",
@@ -104,7 +122,10 @@
     "outputs": [
       { "name": "Normalized", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(v: vec2f) -> vec2f { return normalize(v); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec2f) -> vec2f { return normalize(v); }",
+      "webgl": "vec2 node_{{id}}(vec2 v) { return normalize(v); }"
+    }
   },
   {
     "id": "vec_dot",
@@ -119,7 +140,10 @@
     "outputs": [
       { "name": "Dot", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> f32 { return dot(a, b); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec2f, b: vec2f) -> f32 { return dot(a, b); }",
+      "webgl": "float node_{{id}}(vec2 a, vec2 b) { return dot(a, b); }"
+    }
   },
   {
     "id": "vec_distance",
@@ -134,7 +158,10 @@
     "outputs": [
       { "name": "Distance", "type": "float" }
     ],
-    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> f32 { return distance(a, b); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec2f, b: vec2f) -> f32 { return distance(a, b); }",
+      "webgl": "float node_{{id}}(vec2 a, vec2 b) { return distance(a, b); }"
+    }
   },
   {
     "id": "vec_reflect",
@@ -149,7 +176,10 @@
     "outputs": [
       { "name": "Reflected", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(v: vec2f, n: vec2f) -> vec2f { return reflect(v, normalize(n)); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec2f, n: vec2f) -> vec2f { return reflect(v, normalize(n)); }",
+      "webgl": "vec2 node_{{id}}(vec2 v, vec2 n) { return reflect(v, normalize(n)); }"
+    }
   },
   {
     "id": "vec_add",
@@ -164,7 +194,10 @@
     "outputs": [
       { "name": "Result", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> vec2f { return a + b; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec2f, b: vec2f) -> vec2f { return a + b; }",
+      "webgl": "vec2 node_{{id}}(vec2 a, vec2 b) { return a + b; }"
+    }
   },
   {
     "id": "vec_multiply",
@@ -179,7 +212,10 @@
     "outputs": [
       { "name": "Result", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(a: vec2f, b: vec2f) -> vec2f { return a * b; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec2f, b: vec2f) -> vec2f { return a * b; }",
+      "webgl": "vec2 node_{{id}}(vec2 a, vec2 b) { return a * b; }"
+    }
   },
   {
     "id": "vec_scale",
@@ -194,7 +230,10 @@
     "outputs": [
       { "name": "Result", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(v: vec2f, s: f32) -> vec2f { return v * s; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec2f, s: f32) -> vec2f { return v * s; }",
+      "webgl": "vec2 node_{{id}}(vec2 v, float s) { return v * s; }"
+    }
   },
   {
     "id": "vec_mix",
@@ -210,7 +249,9 @@
     "outputs": [
       { "name": "Result", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(a: vec2f, b: vec2f, t: f32) -> vec2f { return mix(a, b, t); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec2f, b: vec2f, t: f32) -> vec2f { return mix(a, b, t); }",
+      "webgl": "vec2 node_{{id}}(vec2 a, vec2 b, float t) { return mix(a, b, t); }"
+    }
   }
 ]
-

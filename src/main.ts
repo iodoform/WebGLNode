@@ -1,33 +1,31 @@
 import { NodeEditor } from './editor/NodeEditor';
 import { WebGPURenderer } from './webgpu/WebGPURenderer';
+import { WebGLRenderer } from './webgl/WebGLRenderer';
+import { WGSLGenerator } from './infrastructure/shader/WGSLGenerator';
+import { GLSLGenerator } from './infrastructure/shader/GLSLGenerator';
+import { RendererCapability } from './infrastructure/rendering/RendererCapability';
+import { IRenderer } from './infrastructure/rendering/IRenderer';
+import { IShaderGenerator } from './infrastructure/shader/IShaderGenerator';
+import { RendererType } from './types';
 import './styles/main.css';
 
 class App {
-  private editor: NodeEditor;
-  private renderer: WebGPURenderer;
-  private codePreview: HTMLElement;
-  private fpsDisplay: HTMLElement;
-  private timeDisplay: HTMLElement;
+  private editor!: NodeEditor;
+  private renderer!: IRenderer;
+  private shaderGenerator!: IShaderGenerator;
+  private glslGenerator?: GLSLGenerator;
+  private codePreview!: HTMLElement;
+  private fpsDisplay!: HTMLElement;
+  private timeDisplay!: HTMLElement;
+  private rendererTypeDisplay!: HTMLElement;
   private lastFrameTime: number = 0;
   private frameCount: number = 0;
   private fps: number = 0;
+  private rendererType: RendererType = 'webgpu';
 
   constructor() {
     // Setup preview panel
     this.setupPreviewPanel();
-    
-    // Initialize node editor
-    this.editor = new NodeEditor('node-editor');
-    
-    // Initialize WebGPU renderer
-    const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
-    this.renderer = new WebGPURenderer(canvas);
-    
-    // Get elements for display
-    this.codePreview = document.getElementById('code-preview')!;
-    this.fpsDisplay = document.getElementById('fps-value')!;
-    this.timeDisplay = document.getElementById('time-value')!;
-    
     this.initialize();
   }
 
@@ -35,7 +33,7 @@ class App {
     const previewPanel = document.getElementById('preview-panel')!;
     
     previewPanel.innerHTML = `
-      <div class="preview-header">Preview</div>
+      <div class="preview-header">Preview <span id="renderer-type" class="renderer-badge"></span></div>
       <canvas id="preview-canvas"></canvas>
       <div class="preview-controls">
         <div class="preview-stat">
@@ -47,86 +45,75 @@ class App {
           <span id="time-value" class="preview-stat-value">0.00s</span>
         </div>
       </div>
-      <div class="preview-header">Generated WGSL</div>
+      <div class="preview-header">Generated Shader</div>
       <div id="code-preview" class="code-preview"></div>
     `;
   }
 
   private async initialize(): Promise<void> {
-    // Initialize WebGPU
-    const success = await this.renderer.initialize();
-    if (!success) {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isChrome = /CriOS|Chrome/.test(navigator.userAgent);
-      const userAgent = navigator.userAgent;
-      const hasGpu = typeof navigator.gpu !== 'undefined';
-      
-      // 詳細なデバッグ情報を収集
-      let debugInfo = `\n\nデバッグ情報:\n`;
-      debugInfo += `- User Agent: ${userAgent}\n`;
-      debugInfo += `- navigator.gpu: ${hasGpu ? '存在' : '未定義'}\n`;
-      
-      // iOSバージョンの検出を試みる
-      const iosVersionMatch = userAgent.match(/OS (\d+)_(\d+)/);
-      if (iosVersionMatch) {
-        const major = parseInt(iosVersionMatch[1]);
-        const minor = parseInt(iosVersionMatch[2]);
-        debugInfo += `- iOS バージョン: ${major}.${minor}\n`;
-        if (major < 17) {
-          debugInfo += `  ⚠️ iOS 17.0以降が必要です\n`;
-        }
-      }
-      
-      if (hasGpu) {
-        try {
-          const adapter = await navigator.gpu!.requestAdapter();
-          debugInfo += `- requestAdapter(): ${adapter ? '成功' : 'nullを返却'}\n`;
-          if (adapter) {
-            try {
-              const device = await adapter.requestDevice();
-              debugInfo += `- requestDevice(): 成功\n`;
-              device.destroy(); // クリーンアップ
-            } catch (e) {
-              debugInfo += `- requestDevice(): エラー - ${e}\n`;
-            }
-          } else {
-            debugInfo += `  ⚠️ アダプターが取得できませんでした。WebGPUが無効化されている可能性があります。\n`;
-          }
-        } catch (e) {
-          debugInfo += `- requestAdapter(): エラー - ${e}\n`;
-        }
-        
-        const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
-        if (canvas) {
-          const context = canvas.getContext('webgpu');
-          debugInfo += `- getContext('webgpu'): ${context ? '成功' : 'nullを返却'}\n`;
-          if (!context) {
-            debugInfo += `  ⚠️ WebGPUコンテキストが取得できませんでした。\n`;
-            // 代替として2dコンテキストが取得できるか確認
-            const test2d = canvas.getContext('2d');
-            debugInfo += `- getContext('2d'): ${test2d ? '成功' : '失敗'} (キャンバス自体は有効)\n`;
-          }
-        } else {
-          debugInfo += `- キャンバス要素が見つかりません\n`;
-        }
-      }
-      
-      let errorMessage = 'WebGPU is not supported in this browser.';
-      if (isIOS && isChrome) {
-        errorMessage += ' iOSのChromeでWebGPUを使用するには、iOS 17.0以降が必要です。';
-        errorMessage += '\n\n注意: iOSのChromeはSafariのWebKitを使用するため、SafariでWebGPUが有効になっている必要があります。';
-      } else if (isIOS) {
-        errorMessage += ' iOSでWebGPUを使用するには、iOS 17.0以降のSafariが必要です。';
-      } else {
-        errorMessage += ' Please use Chrome 113+ or Edge 113+.';
-      }
-      
-      errorMessage += debugInfo;
-      
-      console.error('WebGPU初期化失敗:', errorMessage);
-      this.showError(errorMessage);
+    // Get elements for display
+    this.codePreview = document.getElementById('code-preview')!;
+    this.fpsDisplay = document.getElementById('fps-value')!;
+    this.timeDisplay = document.getElementById('time-value')!;
+    this.rendererTypeDisplay = document.getElementById('renderer-type')!;
+
+    // Detect preferred renderer
+    const preferredRenderer = await RendererCapability.getPreferredRenderer();
+    
+    if (!preferredRenderer) {
+      this.showError('No supported graphics API found. This application requires WebGPU or WebGL2.');
       return;
     }
+
+    this.rendererType = preferredRenderer;
+    const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
+
+    // Initialize appropriate renderer and shader generator
+    if (preferredRenderer === 'webgpu') {
+      this.renderer = new WebGPURenderer(canvas);
+      this.shaderGenerator = new WGSLGenerator();
+      this.rendererTypeDisplay.textContent = 'WebGPU';
+      this.rendererTypeDisplay.className = 'renderer-badge webgpu';
+    } else {
+      this.renderer = new WebGLRenderer(canvas);
+      this.shaderGenerator = new GLSLGenerator();
+      this.glslGenerator = this.shaderGenerator as GLSLGenerator;
+      this.rendererTypeDisplay.textContent = 'WebGL';
+      this.rendererTypeDisplay.className = 'renderer-badge webgl';
+    }
+
+    // Initialize renderer
+    const success = await this.renderer.initialize();
+    if (!success) {
+      // Try fallback to WebGL if WebGPU failed
+      if (preferredRenderer === 'webgpu') {
+        console.log('WebGPU initialization failed, trying WebGL fallback...');
+        const webglAvailable = RendererCapability.checkWebGLSupport();
+        if (webglAvailable) {
+          this.renderer = new WebGLRenderer(canvas);
+          this.shaderGenerator = new GLSLGenerator();
+          this.glslGenerator = this.shaderGenerator as GLSLGenerator;
+          this.rendererType = 'webgl';
+          this.rendererTypeDisplay.textContent = 'WebGL';
+          this.rendererTypeDisplay.className = 'renderer-badge webgl';
+          
+          const fallbackSuccess = await this.renderer.initialize();
+          if (!fallbackSuccess) {
+            this.showError('Failed to initialize graphics. Both WebGPU and WebGL initialization failed.');
+            return;
+          }
+        } else {
+          this.showError('WebGPU initialization failed and WebGL is not available.');
+          return;
+        }
+      } else {
+        this.showError('Failed to initialize WebGL renderer.');
+        return;
+      }
+    }
+
+    // Initialize node editor with appropriate shader generator
+    this.editor = new NodeEditor('node-editor', this.shaderGenerator);
 
     // Set error callback
     this.renderer.setErrorCallback((error) => {
@@ -135,14 +122,33 @@ class App {
 
     // Connect editor to renderer
     this.editor.setShaderUpdateCallback((code) => {
-      this.renderer.updateShader(code);
-      this.updateCodePreview(code);
+      if (this.rendererType === 'webgl' && this.glslGenerator) {
+        // For WebGL, we need to generate the shaders properly
+        const domainNodes = (this.editor as any).nodeEditorService.getAllNodes();
+        const domainConnections = (this.editor as any).nodeEditorService.getAllConnections();
+        const shaders = this.glslGenerator.generateShaders(domainNodes, domainConnections);
+        const jsonCode = JSON.stringify(shaders);
+        this.renderer.updateShader(jsonCode);
+        this.updateCodePreview(shaders.fragment);
+      } else {
+        this.renderer.updateShader(code);
+        this.updateCodePreview(code);
+      }
     });
 
     // Generate initial shader
     const initialShader = this.editor.generateShader();
-    this.renderer.updateShader(initialShader);
-    this.updateCodePreview(initialShader);
+    if (this.rendererType === 'webgl' && this.glslGenerator) {
+      const domainNodes = (this.editor as any).nodeEditorService.getAllNodes();
+      const domainConnections = (this.editor as any).nodeEditorService.getAllConnections();
+      const shaders = this.glslGenerator.generateShaders(domainNodes, domainConnections);
+      const jsonCode = JSON.stringify(shaders);
+      this.renderer.updateShader(jsonCode);
+      this.updateCodePreview(shaders.fragment);
+    } else {
+      this.renderer.updateShader(initialShader);
+      this.updateCodePreview(initialShader);
+    }
 
     // Resize canvas
     this.resizeCanvas();
@@ -153,6 +159,10 @@ class App {
     
     // Start stats update loop
     this.updateStats();
+
+    // Log renderer info
+    const info = await RendererCapability.getDetailedInfo();
+    console.log('Renderer capability info:', info);
   }
 
   private resizeCanvas(): void {
@@ -186,11 +196,24 @@ class App {
     if (!this.codePreview) return;
 
     // Simple syntax highlighting
-    const highlighted = code
-      .replace(/\b(fn|let|var|return|if|else|for|struct|@\w+)\b/g, '<span class="keyword">$1</span>')
-      .replace(/\b(\d+\.?\d*f?)\b/g, '<span class="number">$1</span>')
-      .replace(/(\/\/.*)/g, '<span class="comment">$1</span>')
-      .replace(/\b(vec2f|vec3f|vec4f|f32|u32|i32)\b/g, '<span class="function">$1</span>');
+    let highlighted: string;
+    
+    if (this.rendererType === 'webgpu') {
+      // WGSL highlighting
+      highlighted = code
+        .replace(/\b(fn|let|var|return|if|else|for|struct|@\w+)\b/g, '<span class="keyword">$1</span>')
+        .replace(/\b(\d+\.?\d*f?)\b/g, '<span class="number">$1</span>')
+        .replace(/(\/\/.*)/g, '<span class="comment">$1</span>')
+        .replace(/\b(vec2f|vec3f|vec4f|f32|u32|i32)\b/g, '<span class="function">$1</span>');
+    } else {
+      // GLSL highlighting
+      highlighted = code
+        .replace(/\b(void|float|vec2|vec3|vec4|int|bool|uniform|in|out|return|if|else|for)\b/g, '<span class="keyword">$1</span>')
+        .replace(/\b(\d+\.?\d*f?)\b/g, '<span class="number">$1</span>')
+        .replace(/(\/\/.*)/g, '<span class="comment">$1</span>')
+        .replace(/(#version.*)/g, '<span class="comment">$1</span>')
+        .replace(/\b(precision|highp|mediump|lowp)\b/g, '<span class="function">$1</span>');
+    }
 
     this.codePreview.innerHTML = highlighted;
   }
@@ -210,10 +233,11 @@ class App {
       font-size: 16px;
       text-align: center;
       z-index: 10000;
-      max-width: 400px;
+      max-width: 500px;
+      white-space: pre-wrap;
     `;
     errorDiv.innerHTML = `
-      <div style="color: #ef4444; font-size: 24px; margin-bottom: 12px;">⚠️ WebGPU Error</div>
+      <div style="color: #ef4444; font-size: 24px; margin-bottom: 12px;">⚠️ Graphics Error</div>
       <div>${message}</div>
     `;
     document.body.appendChild(errorDiv);
@@ -222,4 +246,3 @@ class App {
 
 // Start app
 new App();
-

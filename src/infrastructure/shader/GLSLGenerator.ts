@@ -6,10 +6,10 @@ import { IShaderGenerator } from './IShaderGenerator';
 import { RendererType } from '../../types';
 
 /**
- * WGSLシェーダー生成器
+ * GLSLシェーダー生成器
  * 
- * ドメインエンティティ（Node、Connection）からWGSLシェーダーコードを生成します。
- * ノードグラフを解析し、適切な関数呼び出しと変数宣言を生成します。
+ * ドメインエンティティ（Node、Connection）からGLSLシェーダーコードを生成します。
+ * WebGL2用のシェーダーを生成します。
  */
 interface GenerationContext {
   nodes: Map<string, Node>;
@@ -21,17 +21,17 @@ interface GenerationContext {
   nodeOutputVars: Map<string, Map<string, string>>; // nodeId -> outputName -> varName
 }
 
-export class WGSLGenerator implements IShaderGenerator {
-  readonly rendererType: RendererType = 'webgpu';
+export class GLSLGenerator implements IShaderGenerator {
+  readonly rendererType: RendererType = 'webgl';
 
-  private typeToWGSL(type: SocketType): string {
+  private typeToGLSL(type: SocketType): string {
     switch (type) {
-      case 'float': return 'f32';
-      case 'vec2': return 'vec2f';
-      case 'vec3': return 'vec3f';
-      case 'vec4': return 'vec4f';
-      case 'color': return 'vec3f';
-      default: return 'f32';
+      case 'float': return 'float';
+      case 'vec2': return 'vec2';
+      case 'vec3': return 'vec3';
+      case 'vec4': return 'vec4';
+      case 'color': return 'vec3';
+      default: return 'float';
     }
   }
 
@@ -39,20 +39,20 @@ export class WGSLGenerator implements IShaderGenerator {
     if (value !== undefined) {
       if (Array.isArray(value)) {
         switch (type) {
-          case 'vec2': return `vec2f(${value[0] ?? 0}, ${value[1] ?? 0})`;
+          case 'vec2': return `vec2(${value[0] ?? 0}, ${value[1] ?? 0})`;
           case 'vec3': 
-          case 'color': return `vec3f(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0})`;
-          case 'vec4': return `vec4f(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0}, ${value[3] ?? 1})`;
+          case 'color': return `vec3(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0})`;
+          case 'vec4': return `vec4(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0}, ${value[3] ?? 1})`;
           default: return String(value[0] ?? 0);
         }
       }
       return String(value);
     }
     switch (type) {
-      case 'vec2': return 'vec2f(0.0, 0.0)';
+      case 'vec2': return 'vec2(0.0, 0.0)';
       case 'vec3':
-      case 'color': return 'vec3f(0.0, 0.0, 0.0)';
-      case 'vec4': return 'vec4f(0.0, 0.0, 0.0, 1.0)';
+      case 'color': return 'vec3(0.0, 0.0, 0.0)';
+      case 'vec4': return 'vec4(0.0, 0.0, 0.0, 1.0)';
       default: return '0.0';
     }
   }
@@ -98,7 +98,7 @@ export class WGSLGenerator implements IShaderGenerator {
     for (const defId of usedDefinitions) {
       const def = nodeDefinitionLoader.getDefinition(defId);
       if (def && def.code) {
-        const code = typeof def.code === 'string' ? def.code : def.code.webgpu;
+        const code = typeof def.code === 'string' ? '' : def.code.webgl;
         if (code) {
           // Replace {{id}} placeholder with unique identifier
           const nodesOfType = Array.from(nodesMap.values()).filter(n => n.definitionId === defId);
@@ -184,9 +184,9 @@ export class WGSLGenerator implements IShaderGenerator {
 
     // Handle output node specially
     if (node.definitionId === 'output_color') {
-      const colorValue = inputValues[0] || 'vec3f(0.0)';
+      const colorValue = inputValues[0] || 'vec3(0.0)';
       const alphaValue = inputValues[1] || '1.0';
-      lines.push(`  let finalColor = vec4f(${colorValue}, ${alphaValue});`);
+      lines.push(`  vec4 finalColor = vec4(${colorValue}, ${alphaValue});`);
       return lines.join('\n');
     }
 
@@ -202,8 +202,8 @@ export class WGSLGenerator implements IShaderGenerator {
       outputVars.set(output.name, varName);
       
       const colorValue = node.getValue('_color') as number[] || [1, 1, 1];
-      const colorStr = `vec3f(${colorValue[0].toFixed(4)}, ${colorValue[1].toFixed(4)}, ${colorValue[2].toFixed(4)})`;
-      lines.push(`  let ${varName}: vec3f = ${colorStr};`);
+      const colorStr = `vec3(${colorValue[0].toFixed(4)}, ${colorValue[1].toFixed(4)}, ${colorValue[2].toFixed(4)})`;
+      lines.push(`  vec3 ${varName} = ${colorStr};`);
       return lines.join('\n');
     }
 
@@ -214,7 +214,7 @@ export class WGSLGenerator implements IShaderGenerator {
       outputVars.set(output.name, varName);
       
       const funcCall = `node_${nodeId}(${inputValues.join(', ')})`;
-      lines.push(`  let ${varName}: ${this.typeToWGSL(output.type)} = ${funcCall};`);
+      lines.push(`  ${this.typeToGLSL(output.type)} ${varName} = ${funcCall};`);
     } else if (definition.outputs.length > 1) {
       // Multiple outputs - call separate functions for each
       for (const output of definition.outputs) {
@@ -223,7 +223,7 @@ export class WGSLGenerator implements IShaderGenerator {
         
         const funcName = `node_${nodeId}_${output.name.toLowerCase()}`;
         const funcCall = `${funcName}(${inputValues.join(', ')})`;
-        lines.push(`  let ${varName}: ${this.typeToWGSL(output.type)} = ${funcCall};`);
+        lines.push(`  ${this.typeToGLSL(output.type)} ${varName} = ${funcCall};`);
       }
     }
 
@@ -244,87 +244,199 @@ export class WGSLGenerator implements IShaderGenerator {
     functions: string[],
     mainBody: string
   ): string {
-    return `// Generated WGSL Shader
-struct Uniforms {
-  time: f32,
-  resolution: vec2f,
-  mouse: vec2f,
-}
+    const shaders = this.assembleGLSLShaders(functions, mainBody);
+    return JSON.stringify(shaders);
+  }
 
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+  generateDefault(): string {
+    return JSON.stringify({
+      vertex: `#version 300 es
+precision highp float;
 
-struct VertexOutput {
-  @builtin(position) position: vec4f,
-  @location(0) uv: vec2f,
-}
+out vec2 vUv;
 
-@vertex
-fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
-  var pos = array<vec2f, 6>(
-    vec2f(-1.0, -1.0),
-    vec2f( 1.0, -1.0),
-    vec2f(-1.0,  1.0),
-    vec2f(-1.0,  1.0),
-    vec2f( 1.0, -1.0),
-    vec2f( 1.0,  1.0)
+void main() {
+  vec2 positions[6] = vec2[](
+    vec2(-1.0, -1.0),
+    vec2( 1.0, -1.0),
+    vec2(-1.0,  1.0),
+    vec2(-1.0,  1.0),
+    vec2( 1.0, -1.0),
+    vec2( 1.0,  1.0)
   );
   
-  var output: VertexOutput;
-  output.position = vec4f(pos[vertexIndex], 0.0, 1.0);
-  output.uv = pos[vertexIndex] * 0.5 + 0.5;
-  return output;
+  vec2 pos = positions[gl_VertexID];
+  gl_Position = vec4(pos, 0.0, 1.0);
+  vUv = pos * 0.5 + 0.5;
 }
+`,
+      fragment: `#version 300 es
+precision highp float;
+
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+in vec2 vUv;
+out vec4 fragColor;
+
+void main() {
+  fragColor = vec4(vUv, 0.5 + 0.5 * sin(u_time), 1.0);
+}
+`
+    });
+  }
+
+  /**
+   * シェーダーを生成してオブジェクトとして返す
+   */
+  generateShaders(nodes: Node[], connections: Connection[]): { vertex: string; fragment: string } {
+    // Convert arrays to Maps for easier lookup
+    const nodesMap = new Map<string, Node>();
+    const connectionsMap = new Map<string, Connection>();
+    
+    for (const node of nodes) {
+      nodesMap.set(node.id.value, node);
+    }
+    
+    for (const connection of connections) {
+      connectionsMap.set(connection.id.value, connection);
+    }
+
+    const context: GenerationContext = {
+      nodes: nodesMap,
+      connections: connectionsMap,
+      processedNodes: new Set(),
+      functionCode: [],
+      variableDeclarations: [],
+      variableCounter: 0,
+      nodeOutputVars: new Map(),
+    };
+
+    // Find output node
+    const outputNode = nodes.find(
+      n => n.definitionId === 'output_color'
+    );
+
+    if (!outputNode) {
+      return this.generateDefaultShaders();
+    }
+
+    // Collect all needed function definitions
+    const usedDefinitions = new Set<string>();
+    this.collectUsedDefinitions(outputNode, nodesMap, connectionsMap, usedDefinitions);
+
+    // Generate function code for each used definition
+    const functionDeclarations: string[] = [];
+    for (const defId of usedDefinitions) {
+      const def = nodeDefinitionLoader.getDefinition(defId);
+      if (def && def.code) {
+        const code = typeof def.code === 'string' ? '' : def.code.webgl;
+        if (code) {
+          // Replace {{id}} placeholder with unique identifier
+          const nodesOfType = Array.from(nodesMap.values()).filter(n => n.definitionId === defId);
+          for (const node of nodesOfType) {
+            const processedCode = code.replace(/\{\{id\}\}/g, node.id.value.replace('node_', ''));
+            if (!functionDeclarations.includes(processedCode)) {
+              functionDeclarations.push(processedCode);
+            }
+          }
+        }
+      }
+    }
+
+    // Generate main fragment calculation
+    const mainBody = this.generateNodeEvaluation(outputNode, context);
+
+    return this.assembleGLSLShaders(functionDeclarations, mainBody);
+  }
+
+  private assembleGLSLShaders(
+    functions: string[],
+    mainBody: string
+  ): { vertex: string; fragment: string } {
+    const vertex = `#version 300 es
+precision highp float;
+
+out vec2 vUv;
+
+void main() {
+  vec2 positions[6] = vec2[](
+    vec2(-1.0, -1.0),
+    vec2( 1.0, -1.0),
+    vec2(-1.0,  1.0),
+    vec2(-1.0,  1.0),
+    vec2( 1.0, -1.0),
+    vec2( 1.0,  1.0)
+  );
+  
+  vec2 pos = positions[gl_VertexID];
+  gl_Position = vec4(pos, 0.0, 1.0);
+  vUv = pos * 0.5 + 0.5;
+}
+`;
+
+    const fragment = `#version 300 es
+precision highp float;
+
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+in vec2 vUv;
+out vec4 fragColor;
 
 // Node functions
 ${functions.join('\n\n')}
 
-@fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  let uv = input.uv;
+void main() {
+  vec2 uv = vUv;
   
 ${mainBody}
   
-  return finalColor;
+  fragColor = finalColor;
 }
 `;
+
+    return { vertex, fragment };
   }
 
-  generateDefault(): string {
-    return `// Default WGSL Shader
-struct Uniforms {
-  time: f32,
-  resolution: vec2f,
-  mouse: vec2f,
-}
+  generateDefaultShaders(): { vertex: string; fragment: string } {
+    return {
+      vertex: `#version 300 es
+precision highp float;
 
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
+out vec2 vUv;
 
-struct VertexOutput {
-  @builtin(position) position: vec4f,
-  @location(0) uv: vec2f,
-}
-
-@vertex
-fn vertexMain(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
-  var pos = array<vec2f, 6>(
-    vec2f(-1.0, -1.0),
-    vec2f( 1.0, -1.0),
-    vec2f(-1.0,  1.0),
-    vec2f(-1.0,  1.0),
-    vec2f( 1.0, -1.0),
-    vec2f( 1.0,  1.0)
+void main() {
+  vec2 positions[6] = vec2[](
+    vec2(-1.0, -1.0),
+    vec2( 1.0, -1.0),
+    vec2(-1.0,  1.0),
+    vec2(-1.0,  1.0),
+    vec2( 1.0, -1.0),
+    vec2( 1.0,  1.0)
   );
   
-  var output: VertexOutput;
-  output.position = vec4f(pos[vertexIndex], 0.0, 1.0);
-  output.uv = pos[vertexIndex] * 0.5 + 0.5;
-  return output;
+  vec2 pos = positions[gl_VertexID];
+  gl_Position = vec4(pos, 0.0, 1.0);
+  vUv = pos * 0.5 + 0.5;
 }
+`,
+      fragment: `#version 300 es
+precision highp float;
 
-@fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  return vec4f(input.uv, 0.5 + 0.5 * sin(uniforms.time), 1.0);
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+
+in vec2 vUv;
+out vec4 fragColor;
+
+void main() {
+  fragColor = vec4(vUv, 0.5 + 0.5 * sin(u_time), 1.0);
 }
-`;
+`
+    };
   }
 }
