@@ -119,13 +119,18 @@ class App {
 
     // Connect editor to renderer
     this.editor.setShaderUpdateCallback((code) => {
+      console.log('[ShaderUpdate] Renderer type:', this.rendererType);
+      console.log('[ShaderUpdate] Generated code:', code);
+      
       if (this.rendererType === 'webgl') {
         // For WebGL, code is already JSON-stringified from GLSLGenerator.generate()
-        this.renderer.updateShader(code);
+        const success = this.renderer.updateShader(code);
+        console.log('[ShaderUpdate] WebGL shader update success:', success);
         const shaders = JSON.parse(code) as { vertex: string; fragment: string };
         this.updateCodePreview(shaders.fragment);
       } else {
-        this.renderer.updateShader(code);
+        const success = this.renderer.updateShader(code);
+        console.log('[ShaderUpdate] WebGPU shader update success:', success);
         this.updateCodePreview(code);
       }
     });
