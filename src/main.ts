@@ -66,6 +66,19 @@ class App {
       debugInfo += `- User Agent: ${userAgent}\n`;
       debugInfo += `- navigator.gpu: ${hasGpu ? '存在' : '未定義'}\n`;
       
+      // プロトコルの確認（WebGPUはHTTPSまたはlocalhostでのみ利用可能）
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+      const isSecure = protocol === 'https:' || isLocalhost;
+      debugInfo += `- プロトコル: ${protocol}\n`;
+      debugInfo += `- ホスト名: ${hostname}\n`;
+      debugInfo += `- セキュア接続: ${isSecure ? 'はい' : 'いいえ'}\n`;
+      if (!isSecure) {
+        debugInfo += `  ⚠️ WebGPUはHTTPS接続またはlocalhostでのみ利用可能です\n`;
+        debugInfo += `  ⚠️ HTTP接続ではnavigator.gpuが未定義になります\n`;
+      }
+      
       // iOSバージョンの検出を試みる
       const iosVersionMatch = userAgent.match(/OS (\d+)_(\d+)/);
       if (iosVersionMatch) {
@@ -74,6 +87,18 @@ class App {
         debugInfo += `- iOS バージョン: ${major}.${minor}\n`;
         if (major < 17) {
           debugInfo += `  ⚠️ iOS 17.0以降が必要です\n`;
+        } else {
+          debugInfo += `  ✓ iOS 17.0以降の要件を満たしています\n`;
+        }
+      }
+      
+      // Safariバージョンの確認
+      const safariVersionMatch = userAgent.match(/Version\/(\d+)\.(\d+)/);
+      if (safariVersionMatch) {
+        const safariMajor = parseInt(safariVersionMatch[1]);
+        debugInfo += `- Safari バージョン: ${safariVersionMatch[0]}\n`;
+        if (safariMajor < 17) {
+          debugInfo += `  ⚠️ Safari 17.0以降が必要です\n`;
         }
       }
       
@@ -117,8 +142,25 @@ class App {
         errorMessage += '\n\n注意: iOSのChromeはSafariのWebKitを使用するため、SafariでWebGPUが有効になっている必要があります。';
       } else if (isIOS) {
         errorMessage += ' iOSでWebGPUを使用するには、iOS 17.0以降のSafariが必要です。';
+        if (!isSecure) {
+          errorMessage += '\n\n⚠️ 重要: WebGPUはHTTPS接続またはlocalhostでのみ利用可能です。';
+          errorMessage += '\n現在HTTP接続のため、navigator.gpuが未定義になっています。';
+          errorMessage += '\nHTTPS接続に切り替えるか、localhostで実行してください。';
+        } else if (!hasGpu) {
+          errorMessage += '\n\n⚠️ navigator.gpuが未定義です。';
+          errorMessage += '\n考えられる原因:';
+          errorMessage += '\n1. Safariの設定でWebGPUが無効になっている';
+          errorMessage += '\n2. 実験的機能としてWebGPUが無効になっている';
+          errorMessage += '\n3. デバイスの制限（古いデバイスなど）';
+          errorMessage += '\n\n対処法:';
+          errorMessage += '\n- Safariの設定 > 高度な設定 > 実験的機能 でWebGPUを有効にする';
+          errorMessage += '\n- Safariを再起動する';
+        }
       } else {
         errorMessage += ' Please use Chrome 113+ or Edge 113+.';
+        if (!isSecure) {
+          errorMessage += '\n\n⚠️ WebGPUはHTTPS接続またはlocalhostでのみ利用可能です。';
+        }
       }
       
       errorMessage += debugInfo;
