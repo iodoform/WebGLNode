@@ -56,7 +56,19 @@ class App {
     // Initialize WebGPU
     const success = await this.renderer.initialize();
     if (!success) {
-      this.showError('WebGPU is not supported in this browser. Please use Chrome 113+ or Edge 113+.');
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isChrome = /CriOS|Chrome/.test(navigator.userAgent);
+      
+      let errorMessage = 'WebGPU is not supported in this browser.';
+      if (isIOS && isChrome) {
+        errorMessage += ' iOSのChromeでWebGPUを使用するには、iOS 17.0以降が必要です。';
+      } else if (isIOS) {
+        errorMessage += ' iOSでWebGPUを使用するには、iOS 17.0以降のSafariが必要です。';
+      } else {
+        errorMessage += ' Please use Chrome 113+ or Edge 113+.';
+      }
+      
+      this.showError(errorMessage);
       return;
     }
 
