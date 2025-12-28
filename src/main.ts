@@ -58,16 +58,72 @@ class App {
     if (!success) {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isChrome = /CriOS|Chrome/.test(navigator.userAgent);
+      const userAgent = navigator.userAgent;
+      const hasGpu = typeof navigator.gpu !== 'undefined';
+      
+      // 詳細なデバッグ情報を収集
+      let debugInfo = `\n\nデバッグ情報:\n`;
+      debugInfo += `- User Agent: ${userAgent}\n`;
+      debugInfo += `- navigator.gpu: ${hasGpu ? '存在' : '未定義'}\n`;
+      
+      // iOSバージョンの検出を試みる
+      const iosVersionMatch = userAgent.match(/OS (\d+)_(\d+)/);
+      if (iosVersionMatch) {
+        const major = parseInt(iosVersionMatch[1]);
+        const minor = parseInt(iosVersionMatch[2]);
+        debugInfo += `- iOS バージョン: ${major}.${minor}\n`;
+        if (major < 17) {
+          debugInfo += `  ⚠️ iOS 17.0以降が必要です\n`;
+        }
+      }
+      
+      if (hasGpu) {
+        try {
+          const adapter = await navigator.gpu!.requestAdapter();
+          debugInfo += `- requestAdapter(): ${adapter ? '成功' : 'nullを返却'}\n`;
+          if (adapter) {
+            try {
+              const device = await adapter.requestDevice();
+              debugInfo += `- requestDevice(): 成功\n`;
+              device.destroy(); // クリーンアップ
+            } catch (e) {
+              debugInfo += `- requestDevice(): エラー - ${e}\n`;
+            }
+          } else {
+            debugInfo += `  ⚠️ アダプターが取得できませんでした。WebGPUが無効化されている可能性があります。\n`;
+          }
+        } catch (e) {
+          debugInfo += `- requestAdapter(): エラー - ${e}\n`;
+        }
+        
+        const canvas = document.getElementById('preview-canvas') as HTMLCanvasElement;
+        if (canvas) {
+          const context = canvas.getContext('webgpu');
+          debugInfo += `- getContext('webgpu'): ${context ? '成功' : 'nullを返却'}\n`;
+          if (!context) {
+            debugInfo += `  ⚠️ WebGPUコンテキストが取得できませんでした。\n`;
+            // 代替として2dコンテキストが取得できるか確認
+            const test2d = canvas.getContext('2d');
+            debugInfo += `- getContext('2d'): ${test2d ? '成功' : '失敗'} (キャンバス自体は有効)\n`;
+          }
+        } else {
+          debugInfo += `- キャンバス要素が見つかりません\n`;
+        }
+      }
       
       let errorMessage = 'WebGPU is not supported in this browser.';
       if (isIOS && isChrome) {
         errorMessage += ' iOSのChromeでWebGPUを使用するには、iOS 17.0以降が必要です。';
+        errorMessage += '\n\n注意: iOSのChromeはSafariのWebKitを使用するため、SafariでWebGPUが有効になっている必要があります。';
       } else if (isIOS) {
         errorMessage += ' iOSでWebGPUを使用するには、iOS 17.0以降のSafariが必要です。';
       } else {
         errorMessage += ' Please use Chrome 113+ or Edge 113+.';
       }
       
+      errorMessage += debugInfo;
+      
+      console.error('WebGPU初期化失敗:', errorMessage);
       this.showError(errorMessage);
       return;
     }

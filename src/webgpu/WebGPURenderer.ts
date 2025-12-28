@@ -29,38 +29,65 @@ export class WebGPURenderer {
   }
 
   async initialize(): Promise<boolean> {
+    // Check 1: navigator.gpu availability
     if (!navigator.gpu) {
-      console.error('WebGPU is not supported');
+      console.error('WebGPU is not supported: navigator.gpu is undefined');
       return false;
     }
 
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-      console.error('No GPU adapter found');
+    // Check 2: Request adapter
+    let adapter: GPUAdapter | null = null;
+    try {
+      adapter = await navigator.gpu.requestAdapter();
+    } catch (error) {
+      console.error('Failed to request adapter:', error);
       return false;
     }
-
-    this.device = await adapter.requestDevice();
     
+    if (!adapter) {
+      console.error('No GPU adapter found: requestAdapter returned null');
+      return false;
+    }
+
+    // Check 3: Request device
+    try {
+      this.device = await adapter.requestDevice();
+    } catch (error) {
+      console.error('Failed to request device:', error);
+      return false;
+    }
+    
+    // Check 4: Get WebGPU context
     const context = this.canvas.getContext('webgpu');
     if (!context) {
-      console.error('Could not get WebGPU context');
+      console.error('Could not get WebGPU context: getContext("webgpu") returned null');
       return false;
     }
     this.context = context;
 
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    this.context.configure({
-      device: this.device,
-      format,
-      alphaMode: 'premultiplied',
-    });
+    // Check 5: Configure context
+    try {
+      const format = navigator.gpu.getPreferredCanvasFormat();
+      this.context.configure({
+        device: this.device,
+        format,
+        alphaMode: 'premultiplied',
+      });
+    } catch (error) {
+      console.error('Failed to configure context:', error);
+      return false;
+    }
 
-    // Create uniform buffer (24 bytes for proper alignment)
-    this.uniformBuffer = this.device.createBuffer({
-      size: 24,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+    // Check 6: Create uniform buffer
+    try {
+      this.uniformBuffer = this.device.createBuffer({
+        size: 24,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+    } catch (error) {
+      console.error('Failed to create uniform buffer:', error);
+      return false;
+    }
 
     return true;
   }
