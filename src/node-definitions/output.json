@@ -10,7 +10,9 @@
       { "name": "Alpha", "type": "float", "default": 1 }
     ],
     "outputs": [],
-    "code": ""
+    "code": {
+      "webgpu": "",
+      "webgl": ""
+    }
   }
 ]
-

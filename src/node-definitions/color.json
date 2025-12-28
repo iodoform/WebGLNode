@@ -10,7 +10,10 @@
     "outputs": [
       { "name": "Color", "type": "color" }
     ],
-    "code": ""
+    "code": {
+      "webgpu": "",
+      "webgl": ""
+    }
   },
   {
     "id": "color_hsv_to_rgb",
@@ -26,7 +29,10 @@
     "outputs": [
       { "name": "RGB", "type": "color" }
     ],
-    "code": "fn node_{{id}}(h: f32, s: f32, v: f32) -> vec3f {\n  let c = v * s;\n  let x = c * (1.0 - abs(((h * 6.0) % 2.0) - 1.0));\n  let m = v - c;\n  var rgb: vec3f;\n  let hp = h * 6.0;\n  if (hp < 1.0) { rgb = vec3f(c, x, 0.0); }\n  else if (hp < 2.0) { rgb = vec3f(x, c, 0.0); }\n  else if (hp < 3.0) { rgb = vec3f(0.0, c, x); }\n  else if (hp < 4.0) { rgb = vec3f(0.0, x, c); }\n  else if (hp < 5.0) { rgb = vec3f(x, 0.0, c); }\n  else { rgb = vec3f(c, 0.0, x); }\n  return rgb + vec3f(m); \n}"
+    "code": {
+      "webgpu": "fn node_{{id}}(h: f32, s: f32, v: f32) -> vec3f {\n  let c = v * s;\n  let x = c * (1.0 - abs(((h * 6.0) % 2.0) - 1.0));\n  let m = v - c;\n  var rgb: vec3f;\n  let hp = h * 6.0;\n  if (hp < 1.0) { rgb = vec3f(c, x, 0.0); }\n  else if (hp < 2.0) { rgb = vec3f(x, c, 0.0); }\n  else if (hp < 3.0) { rgb = vec3f(0.0, c, x); }\n  else if (hp < 4.0) { rgb = vec3f(0.0, x, c); }\n  else if (hp < 5.0) { rgb = vec3f(x, 0.0, c); }\n  else { rgb = vec3f(c, 0.0, x); }\n  return rgb + vec3f(m); \n}",
+      "webgl": "vec3 node_{{id}}(float h, float s, float v) {\n  float c = v * s;\n  float x = c * (1.0 - abs(mod(h * 6.0, 2.0) - 1.0));\n  float m = v - c;\n  vec3 rgb;\n  float hp = h * 6.0;\n  if (hp < 1.0) { rgb = vec3(c, x, 0.0); }\n  else if (hp < 2.0) { rgb = vec3(x, c, 0.0); }\n  else if (hp < 3.0) { rgb = vec3(0.0, c, x); }\n  else if (hp < 4.0) { rgb = vec3(0.0, x, c); }\n  else if (hp < 5.0) { rgb = vec3(x, 0.0, c); }\n  else { rgb = vec3(c, 0.0, x); }\n  return rgb + vec3(m); \n}"
+    }
   },
   {
     "id": "color_mix",
@@ -42,7 +48,10 @@
     "outputs": [
       { "name": "Color", "type": "color" }
     ],
-    "code": "fn node_{{id}}(a: vec3f, b: vec3f, t: f32) -> vec3f { return mix(a, b, t); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec3f, b: vec3f, t: f32) -> vec3f { return mix(a, b, t); }",
+      "webgl": "vec3 node_{{id}}(vec3 a, vec3 b, float t) { return mix(a, b, t); }"
+    }
   },
   {
     "id": "color_separate",
@@ -58,7 +67,10 @@
       { "name": "G", "type": "float" },
       { "name": "B", "type": "float" }
     ],
-    "code": "fn node_{{id}}_r(c: vec3f) -> f32 { return c.r; }\nfn node_{{id}}_g(c: vec3f) -> f32 { return c.g; }\nfn node_{{id}}_b(c: vec3f) -> f32 { return c.b; }"
+    "code": {
+      "webgpu": "fn node_{{id}}_r(c: vec3f) -> f32 { return c.r; }\nfn node_{{id}}_g(c: vec3f) -> f32 { return c.g; }\nfn node_{{id}}_b(c: vec3f) -> f32 { return c.b; }",
+      "webgl": "float node_{{id}}_r(vec3 c) { return c.r; }\nfloat node_{{id}}_g(vec3 c) { return c.g; }\nfloat node_{{id}}_b(vec3 c) { return c.b; }"
+    }
   },
   {
     "id": "color_brightness",
@@ -73,7 +85,10 @@
     "outputs": [
       { "name": "Color", "type": "color" }
     ],
-    "code": "fn node_{{id}}(c: vec3f, b: f32) -> vec3f { return c + vec3f(b); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(c: vec3f, b: f32) -> vec3f { return c + vec3f(b); }",
+      "webgl": "vec3 node_{{id}}(vec3 c, float b) { return c + vec3(b); }"
+    }
   },
   {
     "id": "color_contrast",
@@ -88,7 +103,10 @@
     "outputs": [
       { "name": "Color", "type": "color" }
     ],
-    "code": "fn node_{{id}}(c: vec3f, contrast: f32) -> vec3f { return (c - 0.5) * contrast + 0.5; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(c: vec3f, contrast: f32) -> vec3f { return (c - 0.5) * contrast + 0.5; }",
+      "webgl": "vec3 node_{{id}}(vec3 c, float contrast) { return (c - 0.5) * contrast + 0.5; }"
+    }
   },
   {
     "id": "color_gamma",
@@ -103,7 +121,10 @@
     "outputs": [
       { "name": "Color", "type": "color" }
     ],
-    "code": "fn node_{{id}}(c: vec3f, gamma: f32) -> vec3f { return pow(max(c, vec3f(0.0)), vec3f(1.0 / gamma)); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(c: vec3f, gamma: f32) -> vec3f { return pow(max(c, vec3f(0.0)), vec3f(1.0 / gamma)); }",
+      "webgl": "vec3 node_{{id}}(vec3 c, float gamma) { return pow(max(c, vec3(0.0)), vec3(1.0 / gamma)); }"
+    }
   },
   {
     "id": "color_invert",
@@ -117,7 +138,9 @@
     "outputs": [
       { "name": "Color", "type": "color" }
     ],
-    "code": "fn node_{{id}}(c: vec3f) -> vec3f { return vec3f(1.0) - c; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(c: vec3f) -> vec3f { return vec3f(1.0) - c; }",
+      "webgl": "vec3 node_{{id}}(vec3 c) { return vec3(1.0) - c; }"
+    }
   }
 ]
-

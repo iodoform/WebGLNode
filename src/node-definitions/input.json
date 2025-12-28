@@ -9,7 +9,10 @@
     "outputs": [
       { "name": "UV", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}() -> vec2f { return uv; }"
+    "code": {
+      "webgpu": "fn node_{{id}}() -> vec2f { return uv; }",
+      "webgl": "vec2 node_{{id}}() { return vUv; }"
+    }
   },
   {
     "id": "input_time",
@@ -21,7 +24,10 @@
     "outputs": [
       { "name": "Time", "type": "float" }
     ],
-    "code": "fn node_{{id}}() -> f32 { return uniforms.time; }"
+    "code": {
+      "webgpu": "fn node_{{id}}() -> f32 { return uniforms.time; }",
+      "webgl": "float node_{{id}}() { return u_time; }"
+    }
   },
   {
     "id": "input_resolution",
@@ -33,7 +39,10 @@
     "outputs": [
       { "name": "Resolution", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}() -> vec2f { return uniforms.resolution; }"
+    "code": {
+      "webgpu": "fn node_{{id}}() -> vec2f { return uniforms.resolution; }",
+      "webgl": "vec2 node_{{id}}() { return u_resolution; }"
+    }
   },
   {
     "id": "input_mouse",
@@ -45,7 +54,10 @@
     "outputs": [
       { "name": "Position", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}() -> vec2f { return uniforms.mouse; }"
+    "code": {
+      "webgpu": "fn node_{{id}}() -> vec2f { return uniforms.mouse; }",
+      "webgl": "vec2 node_{{id}}() { return u_mouse; }"
+    }
   },
   {
     "id": "input_value",
@@ -59,7 +71,10 @@
     "outputs": [
       { "name": "Value", "type": "float" }
     ],
-    "code": "fn node_{{id}}(v: f32) -> f32 { return v; }"
+    "code": {
+      "webgpu": "fn node_{{id}}(v: f32) -> f32 { return v; }",
+      "webgl": "float node_{{id}}(float v) { return v; }"
+    }
   },
   {
     "id": "input_vec2",
@@ -74,7 +89,10 @@
     "outputs": [
       { "name": "Vector", "type": "vec2" }
     ],
-    "code": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }"
+    "code": {
+      "webgpu": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }",
+      "webgl": "vec2 node_{{id}}(float x, float y) { return vec2(x, y); }"
+    }
   },
   {
     "id": "input_pi",
@@ -86,7 +104,10 @@
     "outputs": [
       { "name": "PI", "type": "float" }
     ],
-    "code": "fn node_{{id}}() -> f32 { return 3.14159265359; }"
+    "code": {
+      "webgpu": "fn node_{{id}}() -> f32 { return 3.14159265359; }",
+      "webgl": "float node_{{id}}() { return 3.14159265359; }"
+    }
   },
   {
     "id": "input_tau",
@@ -98,7 +119,9 @@
     "outputs": [
       { "name": "TAU", "type": "float" }
     ],
-    "code": "fn node_{{id}}() -> f32 { return 6.28318530718; }"
+    "code": {
+      "webgpu": "fn node_{{id}}() -> f32 { return 6.28318530718; }",
+      "webgl": "float node_{{id}}() { return 6.28318530718; }"
+    }
   }
 ]
-

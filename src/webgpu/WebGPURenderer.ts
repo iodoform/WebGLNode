@@ -1,4 +1,9 @@
-export class WebGPURenderer {
+import { IRenderer } from '../infrastructure/rendering/IRenderer';
+import { RendererType } from '../types';
+
+export class WebGPURenderer implements IRenderer {
+  readonly rendererType: RendererType = 'webgpu';
+  
   private canvas: HTMLCanvasElement;
   private device!: GPUDevice;
   private context!: GPUCanvasContext;
