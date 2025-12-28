@@ -13,7 +13,6 @@ class App {
   private editor!: NodeEditor;
   private renderer!: IRenderer;
   private shaderGenerator!: IShaderGenerator;
-  private glslGenerator?: GLSLGenerator;
   private codePreview!: HTMLElement;
   private fpsDisplay!: HTMLElement;
   private timeDisplay!: HTMLElement;
@@ -77,7 +76,6 @@ class App {
     } else {
       this.renderer = new WebGLRenderer(canvas);
       this.shaderGenerator = new GLSLGenerator();
-      this.glslGenerator = this.shaderGenerator as GLSLGenerator;
       this.rendererTypeDisplay.textContent = 'WebGL';
       this.rendererTypeDisplay.className = 'renderer-badge webgl';
     }
@@ -92,7 +90,6 @@ class App {
         if (webglAvailable) {
           this.renderer = new WebGLRenderer(canvas);
           this.shaderGenerator = new GLSLGenerator();
-          this.glslGenerator = this.shaderGenerator as GLSLGenerator;
           this.rendererType = 'webgl';
           this.rendererTypeDisplay.textContent = 'WebGL';
           this.rendererTypeDisplay.className = 'renderer-badge webgl';
@@ -122,13 +119,10 @@ class App {
 
     // Connect editor to renderer
     this.editor.setShaderUpdateCallback((code) => {
-      if (this.rendererType === 'webgl' && this.glslGenerator) {
-        // For WebGL, we need to generate the shaders properly
-        const domainNodes = (this.editor as any).nodeEditorService.getAllNodes();
-        const domainConnections = (this.editor as any).nodeEditorService.getAllConnections();
-        const shaders = this.glslGenerator.generateShaders(domainNodes, domainConnections);
-        const jsonCode = JSON.stringify(shaders);
-        this.renderer.updateShader(jsonCode);
+      if (this.rendererType === 'webgl') {
+        // For WebGL, code is already JSON-stringified from GLSLGenerator.generate()
+        this.renderer.updateShader(code);
+        const shaders = JSON.parse(code) as { vertex: string; fragment: string };
         this.updateCodePreview(shaders.fragment);
       } else {
         this.renderer.updateShader(code);
@@ -138,12 +132,10 @@ class App {
 
     // Generate initial shader
     const initialShader = this.editor.generateShader();
-    if (this.rendererType === 'webgl' && this.glslGenerator) {
-      const domainNodes = (this.editor as any).nodeEditorService.getAllNodes();
-      const domainConnections = (this.editor as any).nodeEditorService.getAllConnections();
-      const shaders = this.glslGenerator.generateShaders(domainNodes, domainConnections);
-      const jsonCode = JSON.stringify(shaders);
-      this.renderer.updateShader(jsonCode);
+    if (this.rendererType === 'webgl') {
+      // initialShader is already JSON-stringified from GLSLGenerator.generate()
+      this.renderer.updateShader(initialShader);
+      const shaders = JSON.parse(initialShader) as { vertex: string; fragment: string };
       this.updateCodePreview(shaders.fragment);
     } else {
       this.renderer.updateShader(initialShader);
