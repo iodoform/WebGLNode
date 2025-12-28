@@ -372,6 +372,13 @@ export class NodeEditor {
   }
 
   /**
+   * タッチ位置から要素を取得（より確実な方法）
+   */
+  private getElementAtTouch(touch: Touch): HTMLElement | null {
+    return document.elementFromPoint(touch.clientX, touch.clientY) as HTMLElement | null;
+  }
+
+  /**
    * タッチ開始
    */
   private handleTouchStart(e: TouchEvent): void {
@@ -396,13 +403,16 @@ export class NodeEditor {
     // 1本指タッチ
     if (e.touches.length === 1) {
       const touch = e.touches[0];
-      const target = touch.target as HTMLElement;
+      // elementFromPointでより確実にタッチ位置の要素を取得
+      const target = this.getElementAtTouch(touch);
+      if (!target) return;
 
       // ソケットをタッチした場合
-      if (target.classList.contains('socket')) {
+      const socketEl = target.closest('.socket') as HTMLElement | null;
+      if (socketEl) {
         e.preventDefault();
-        const socketId = target.dataset.socketId;
-        const nodeId = target.dataset.nodeId;
+        const socketId = socketEl.dataset.socketId;
+        const nodeId = socketEl.dataset.nodeId;
         if (socketId && nodeId) {
           const node = this.nodeCache.get(nodeId);
           if (node) {
@@ -415,63 +425,59 @@ export class NodeEditor {
         return;
       }
 
-      // ノードヘッダーをタッチした場合（ドラッグ開始）
-      const nodeHeader = target.closest('.node-header');
-      if (nodeHeader) {
-        e.preventDefault();
-        const nodeEl = nodeHeader.closest('.node') as HTMLElement;
-        const nodeId = nodeEl?.dataset.nodeId;
-        if (nodeId) {
-          const node = this.nodeCache.get(nodeId);
-          if (node) {
-            this.handleNodeTouchStart(touch, node);
-          }
-        }
-        return;
-      }
-
       // ノード内の入力フィールドはデフォルト動作を許可
       if (target.closest('.node-input-field') || target.closest('.node-vector-input-field') || 
           target.closest('.node-color-picker') || target.closest('.node-large-color-picker')) {
         return;
       }
 
-      // 背景をタッチした場合（パン開始 + 長押し検出）
-      if (!target.closest('.node')) {
+      // ノード全体をタッチした場合（ドラッグ開始）
+      const nodeEl = target.closest('.node') as HTMLElement | null;
+      if (nodeEl) {
         e.preventDefault();
-        
-        // 接続選択をクリア
-        if (this.selectedConnectionId) {
-          this.selectedConnectionId = null;
-          this.connectionRenderer.updateConnectionSelection(null);
-        }
-
-        // パン開始
-        this.dragState = {
-          isDragging: true,
-          startX: touch.clientX,
-          startY: touch.clientY,
-          offsetX: this.state.pan.x,
-          offsetY: this.state.pan.y,
-        };
-
-        // 長押し検出（ノード追加メニュー表示用）
-        this.touchState.longPressX = touch.clientX;
-        this.touchState.longPressY = touch.clientY;
-        this.touchState.longPressTimer = window.setTimeout(() => {
-          // 長押し成立時、ドラッグ中でなければメニュー表示
-          if (this.dragState.isDragging && !this.dragState.nodeId) {
-            const dx = Math.abs(touch.clientX - this.touchState.longPressX);
-            const dy = Math.abs(touch.clientY - this.touchState.longPressY);
-            // 移動が少なければ長押しとして認識
-            if (dx < 10 && dy < 10) {
-              this.dragState.isDragging = false;
-              this.menuManager.showAddNodeMenu(this.touchState.longPressX, this.touchState.longPressY);
-            }
+        const nodeId = nodeEl.dataset.nodeId;
+        if (nodeId) {
+          const node = this.nodeCache.get(nodeId);
+          if (node) {
+            this.handleNodeTouchStart(touch, node);
+            // ノード選択も行う
+            this.state.selectedNodes.clear();
+            this.state.selectedNodes.add(nodeId);
+            this.nodeRenderer.updateSelectionDisplay(this.state.selectedNodes);
           }
-          this.touchState.longPressTimer = null;
-        }, this.LONG_PRESS_DURATION);
+        }
+        return;
       }
+
+      // 背景をタッチした場合（パン開始 + 長押し検出）
+      e.preventDefault();
+      
+      // 接続選択をクリア
+      if (this.selectedConnectionId) {
+        this.selectedConnectionId = null;
+        this.connectionRenderer.updateConnectionSelection(null);
+      }
+
+      // パン開始
+      this.dragState = {
+        isDragging: true,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        offsetX: this.state.pan.x,
+        offsetY: this.state.pan.y,
+      };
+
+      // 長押し検出（ノード追加メニュー表示用）
+      this.touchState.longPressX = touch.clientX;
+      this.touchState.longPressY = touch.clientY;
+      this.touchState.longPressTimer = window.setTimeout(() => {
+        // 長押し成立時、パンドラッグ中であればメニュー表示
+        if (this.dragState.isDragging && !this.dragState.nodeId) {
+          this.dragState.isDragging = false;
+          this.menuManager.showAddNodeMenu(this.touchState.longPressX, this.touchState.longPressY);
+        }
+        this.touchState.longPressTimer = null;
+      }, this.LONG_PRESS_DURATION);
     }
   }
 
