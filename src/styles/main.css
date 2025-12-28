@@ -569,3 +569,169 @@ html, body {
   overscroll-behavior: contain;
 }
 
+/* ======== タッチ操作対応 ======== */
+
+/* タッチデバイスでのソケットサイズを大きく */
+@media (pointer: coarse) {
+  :root {
+    --socket-size: 18px;
+  }
+
+  .socket {
+    /* より大きなタッチターゲット */
+    min-width: 44px;
+    min-height: 44px;
+    /* 視覚的なサイズは維持 */
+    background-clip: content-box;
+    padding: calc((44px - var(--socket-size)) / 2);
+    margin: calc((var(--socket-size) - 44px) / 2);
+  }
+
+  .socket-input {
+    margin-left: calc(-18px - (44px - var(--socket-size)) / 2);
+    margin-right: 0;
+  }
+
+  .socket-output {
+    margin-right: calc(-18px - (44px - var(--socket-size)) / 2);
+    margin-left: 0;
+  }
+
+  .node-header {
+    padding: 12px 16px;
+    /* より押しやすく */
+    min-height: 44px;
+  }
+
+  .add-node-item {
+    padding: 12px 16px;
+    min-height: 44px;
+  }
+
+  .add-node-menu-search input {
+    padding: 10px 12px;
+    font-size: 16px; /* iOSのズーム防止 */
+  }
+
+  .node-input-field,
+  .node-vector-input-field {
+    font-size: 16px; /* iOSのズーム防止 */
+    padding: 6px 8px;
+  }
+}
+
+/* モバイルレイアウト（縦向き） */
+@media screen and (max-width: 768px) {
+  #app {
+    flex-direction: column;
+  }
+
+  #preview-panel {
+    width: 100%;
+    min-width: unset;
+    height: 40%;
+    min-height: 200px;
+    border-left: none;
+    border-top: 2px solid var(--border-color);
+    order: -1; /* プレビューを上部に配置 */
+  }
+
+  #preview-canvas {
+    aspect-ratio: unset;
+    height: 100px;
+    min-height: 100px;
+  }
+
+  #node-editor {
+    flex: 1;
+    min-height: 300px;
+  }
+
+  .code-preview {
+    max-height: 100px;
+    font-size: 10px;
+  }
+
+  .preview-controls {
+    padding: 8px 12px;
+  }
+
+  .preview-header {
+    padding: 8px 12px;
+  }
+
+  /* ノードを少し小さく */
+  .node {
+    min-width: 160px;
+  }
+
+  .node-header {
+    font-size: 11px;
+  }
+
+  .socket-label {
+    font-size: 10px;
+  }
+}
+
+/* モバイル横向き */
+@media screen and (max-width: 1024px) and (orientation: landscape) {
+  #app {
+    flex-direction: row;
+  }
+
+  #preview-panel {
+    width: 280px;
+    min-width: 200px;
+    height: 100%;
+    border-top: none;
+    border-left: 2px solid var(--border-color);
+    order: 0;
+  }
+
+  #preview-canvas {
+    aspect-ratio: 1;
+    height: auto;
+  }
+}
+
+/* タッチスクロールの改善 */
+.add-node-menu {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ホバーエフェクトをタッチデバイスで無効化 */
+@media (hover: none) {
+  .node:hover {
+    border-color: transparent;
+  }
+
+  .node.selected:hover {
+    border-color: var(--accent-primary);
+  }
+
+  .socket:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .connection:hover {
+    stroke-width: 2;
+  }
+}
+
+/* タッチ操作時のハイライト無効化 */
+.node,
+.socket,
+.node-header,
+.add-node-item {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 接続ドラッグ中のカーソル */
+@media (pointer: coarse) {
+  #node-editor.connecting {
+    cursor: default;
+  }
+}
+

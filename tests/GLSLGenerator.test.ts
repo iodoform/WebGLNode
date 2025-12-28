@@ -102,9 +102,6 @@ describe('GLSLGenerator', () => {
       // Parse JSON result
       const shaders = JSON.parse(result);
       
-      console.log('=== Generated Fragment Shader ===');
-      console.log(shaders.fragment);
-      
       // Verify the shader contains expected elements
       expect(shaders.fragment).toContain('vec2 node_1()');
       expect(shaders.fragment).toContain('float node_2_x(vec2');
@@ -139,8 +136,6 @@ describe('GLSLGenerator', () => {
       expect(mainMatch).toBeTruthy();
       
       const mainBody = mainMatch![1];
-      console.log('=== Main body ===');
-      console.log(mainBody);
       
       // Check for proper variable declarations and function calls
       // The order should be: UV -> Separate -> Combine -> Output
@@ -182,9 +177,6 @@ describe('GLSLGenerator', () => {
       const result = generator.generate(nodes, connections);
       const shaders = JSON.parse(result);
       
-      console.log('=== Fragment with defaults ===');
-      console.log(shaders.fragment);
-      
       // All default values should have decimal points
       // node_3(0.0, 0.0, 0.0) not node_3(0, 0, 0)
       expect(shaders.fragment).toMatch(/node_1\(0\.0,\s*0\.0,\s*0\.0\)/);
@@ -210,9 +202,6 @@ describe('GLSLGenerator', () => {
 
       const result = generator.generate(nodes, connections);
       const shaders = JSON.parse(result);
-      
-      console.log('=== Fragment with realistic IDs ===');
-      console.log(shaders.fragment);
       
       // Verify shader is valid
       expect(shaders.fragment).toContain('void main()');
@@ -255,10 +244,6 @@ describe('GLSLGenerator', () => {
       // Look for patterns like "0)" or "0," that should be "0.0)" or "0.0,"
       const bareIntegerPattern = /\b(\d+)(?=[,\)])/g;
       const matches = mainBody.match(bareIntegerPattern);
-      
-      console.log('=== Checking for bare integers ===');
-      console.log('Main body:', mainBody);
-      console.log('Bare integer matches:', matches);
       
       // All integers should have decimal points
       if (matches) {
