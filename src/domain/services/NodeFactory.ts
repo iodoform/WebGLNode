@@ -3,7 +3,7 @@ import { Socket } from '../entities/Socket';
 import { NodeId } from '../value-objects/Id';
 import { SocketId } from '../value-objects/Id';
 import { Position } from '../value-objects/Position';
-import type { SocketType, SocketDirection } from '../value-objects/SocketType';
+import type { SocketDirection } from '../value-objects/SocketType';
 import type { NodeDefinition, SocketDefinition } from '../../types';
 
 /**
