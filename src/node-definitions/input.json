@@ -11,7 +11,7 @@
     ],
     "code": {
       "webgpu": "fn node_{{id}}() -> vec2f { return uv; }",
-      "webgl": "vec2 node_{{id}}() { return uv; }"
+      "webgl": "vec2 node_{{id}}() { return vUv; }"
     }
   },
   {

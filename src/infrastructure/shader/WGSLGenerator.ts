@@ -253,6 +253,8 @@ struct Uniforms {
 
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
+var<private> uv: vec2f;
+
 struct VertexOutput {
   @builtin(position) position: vec4f,
   @location(0) uv: vec2f,
@@ -280,7 +282,7 @@ ${functions.join('\n\n')}
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  let uv = input.uv;
+  uv = input.uv;
   
 ${mainBody}
   
