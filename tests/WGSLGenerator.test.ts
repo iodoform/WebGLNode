@@ -95,9 +95,6 @@ describe('WGSLGenerator', () => {
       // Generate shader
       const result = generator.generate(nodes, connections);
       
-      console.log('=== Generated WGSL Shader ===');
-      console.log(result);
-      
       // Verify the shader contains expected elements
       expect(result).toContain('fn node_1()');
       expect(result).toContain('fn node_2_x(');
