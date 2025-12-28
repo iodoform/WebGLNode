@@ -16,6 +16,24 @@ import { ConnectionId } from '../domain/value-objects/Id';
 import { nodeDefinitionLoader } from '../nodes/NodeDefinitionLoader';
 
 /**
+ * タッチ操作の状態を管理するインターフェース
+ */
+interface TouchState {
+  // ピンチズーム用
+  initialDistance: number;
+  initialZoom: number;
+  // 長押し検出用
+  longPressTimer: number | null;
+  longPressX: number;
+  longPressY: number;
+  // マルチタッチ判定
+  isTwoFingerTouch: boolean;
+  // ピンチ中心点
+  pinchCenterX: number;
+  pinchCenterY: number;
+}
+
+/**
  * ノードエディターのメインクラス
  * 
  * ノードエディター全体の状態管理と、各レンダラー（NodeRenderer、ConnectionRenderer、InputFieldRenderer、
@@ -33,6 +51,21 @@ export class NodeEditor {
   private selectedConnectionId: string | null = null;
   
   private onShaderUpdate?: (code: string) => void;
+
+  // タッチ操作の状態
+  private touchState: TouchState = {
+    initialDistance: 0,
+    initialZoom: 1,
+    longPressTimer: null,
+    longPressX: 0,
+    longPressY: 0,
+    isTwoFingerTouch: false,
+    pinchCenterX: 0,
+    pinchCenterY: 0,
+  };
+
+  // 長押し判定時間（ミリ秒）
+  private readonly LONG_PRESS_DURATION = 500;
 
   // DDD Services
   private nodeRepository: InMemoryNodeRepository;
@@ -140,11 +173,17 @@ export class NodeEditor {
   }
 
   private setupEventListeners(): void {
-    // Pan handling
+    // Pan handling (mouse)
     this.container.addEventListener('mousedown', this.handlePanStart.bind(this));
     this.container.addEventListener('mousemove', this.handleMouseMove.bind(this));
     this.container.addEventListener('mouseup', this.handleMouseUp.bind(this));
     this.container.addEventListener('wheel', this.handleZoom.bind(this));
+
+    // Touch handling
+    this.container.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+    this.container.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+    this.container.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    this.container.addEventListener('touchcancel', this.handleTouchEnd.bind(this), { passive: false });
 
     // Context menu for adding nodes
     this.container.addEventListener('contextmenu', this.handleContextMenu.bind(this));
@@ -156,6 +195,14 @@ export class NodeEditor {
       }
       this.menuManager.closeAddNodeMenu();
     });
+
+    // Close menu on touch outside
+    document.addEventListener('touchstart', (e) => {
+      if (this.menuManager.containsElement(e.target as HTMLElement)) {
+        return;
+      }
+      this.menuManager.closeAddNodeMenu();
+    }, { passive: true });
 
     // Keyboard shortcuts
     document.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -287,6 +334,313 @@ export class NodeEditor {
       const rect = this.container.getBoundingClientRect();
       this.menuManager.showAddNodeMenu(rect.width / 2, rect.height / 2);
     }
+  }
+
+  // ======== タッチイベントハンドラー ========
+
+  /**
+   * 2点間の距離を計算
+   */
+  private getTouchDistance(touches: TouchList): number {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * 2点の中心座標を計算
+   */
+  private getTouchCenter(touches: TouchList): { x: number; y: number } {
+    if (touches.length < 2) {
+      return { x: touches[0].clientX, y: touches[0].clientY };
+    }
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
+  }
+
+  /**
+   * 長押しタイマーをクリア
+   */
+  private clearLongPressTimer(): void {
+    if (this.touchState.longPressTimer !== null) {
+      clearTimeout(this.touchState.longPressTimer);
+      this.touchState.longPressTimer = null;
+    }
+  }
+
+  /**
+   * タッチ開始
+   */
+  private handleTouchStart(e: TouchEvent): void {
+    // メニュー内のタッチは通常処理
+    if (this.menuManager.containsElement(e.target as HTMLElement)) {
+      return;
+    }
+
+    // 2本指タッチ（ピンチズーム）
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      this.clearLongPressTimer();
+      this.touchState.isTwoFingerTouch = true;
+      this.touchState.initialDistance = this.getTouchDistance(e.touches);
+      this.touchState.initialZoom = this.state.zoom;
+      const center = this.getTouchCenter(e.touches);
+      this.touchState.pinchCenterX = center.x;
+      this.touchState.pinchCenterY = center.y;
+      return;
+    }
+
+    // 1本指タッチ
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const target = touch.target as HTMLElement;
+
+      // ソケットをタッチした場合
+      if (target.classList.contains('socket')) {
+        e.preventDefault();
+        const socketId = target.dataset.socketId;
+        const nodeId = target.dataset.nodeId;
+        if (socketId && nodeId) {
+          const node = this.nodeCache.get(nodeId);
+          if (node) {
+            const socket = node.getSocket(socketId);
+            if (socket) {
+              this.handleSocketTouch(socket, touch);
+            }
+          }
+        }
+        return;
+      }
+
+      // ノードヘッダーをタッチした場合（ドラッグ開始）
+      const nodeHeader = target.closest('.node-header');
+      if (nodeHeader) {
+        e.preventDefault();
+        const nodeEl = nodeHeader.closest('.node') as HTMLElement;
+        const nodeId = nodeEl?.dataset.nodeId;
+        if (nodeId) {
+          const node = this.nodeCache.get(nodeId);
+          if (node) {
+            this.handleNodeTouchStart(touch, node);
+          }
+        }
+        return;
+      }
+
+      // ノード内の入力フィールドはデフォルト動作を許可
+      if (target.closest('.node-input-field') || target.closest('.node-vector-input-field') || 
+          target.closest('.node-color-picker') || target.closest('.node-large-color-picker')) {
+        return;
+      }
+
+      // 背景をタッチした場合（パン開始 + 長押し検出）
+      if (!target.closest('.node')) {
+        e.preventDefault();
+        
+        // 接続選択をクリア
+        if (this.selectedConnectionId) {
+          this.selectedConnectionId = null;
+          this.connectionRenderer.updateConnectionSelection(null);
+        }
+
+        // パン開始
+        this.dragState = {
+          isDragging: true,
+          startX: touch.clientX,
+          startY: touch.clientY,
+          offsetX: this.state.pan.x,
+          offsetY: this.state.pan.y,
+        };
+
+        // 長押し検出（ノード追加メニュー表示用）
+        this.touchState.longPressX = touch.clientX;
+        this.touchState.longPressY = touch.clientY;
+        this.touchState.longPressTimer = window.setTimeout(() => {
+          // 長押し成立時、ドラッグ中でなければメニュー表示
+          if (this.dragState.isDragging && !this.dragState.nodeId) {
+            const dx = Math.abs(touch.clientX - this.touchState.longPressX);
+            const dy = Math.abs(touch.clientY - this.touchState.longPressY);
+            // 移動が少なければ長押しとして認識
+            if (dx < 10 && dy < 10) {
+              this.dragState.isDragging = false;
+              this.menuManager.showAddNodeMenu(this.touchState.longPressX, this.touchState.longPressY);
+            }
+          }
+          this.touchState.longPressTimer = null;
+        }, this.LONG_PRESS_DURATION);
+      }
+    }
+  }
+
+  /**
+   * タッチ移動
+   */
+  private handleTouchMove(e: TouchEvent): void {
+    // メニュー内のタッチは通常処理
+    if (this.menuManager.containsElement(e.target as HTMLElement)) {
+      return;
+    }
+
+    // ピンチズーム
+    if (e.touches.length === 2 && this.touchState.isTwoFingerTouch) {
+      e.preventDefault();
+      this.clearLongPressTimer();
+
+      const currentDistance = this.getTouchDistance(e.touches);
+      const scale = currentDistance / this.touchState.initialDistance;
+      const newZoom = Math.max(0.25, Math.min(2, this.touchState.initialZoom * scale));
+
+      // ピンチの中心に向かってズーム
+      const rect = this.container.getBoundingClientRect();
+      const centerX = this.touchState.pinchCenterX - rect.left;
+      const centerY = this.touchState.pinchCenterY - rect.top;
+
+      this.state.pan.x = centerX - (centerX - this.state.pan.x) * (newZoom / this.state.zoom);
+      this.state.pan.y = centerY - (centerY - this.state.pan.y) * (newZoom / this.state.zoom);
+      this.state.zoom = newZoom;
+
+      this.updateTransform();
+      return;
+    }
+
+    // 1本指の移動
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+
+      // 移動があったら長押しをキャンセル
+      const dx = Math.abs(touch.clientX - this.touchState.longPressX);
+      const dy = Math.abs(touch.clientY - this.touchState.longPressY);
+      if (dx > 10 || dy > 10) {
+        this.clearLongPressTimer();
+      }
+
+      // ノードドラッグ
+      if (this.dragState.isDragging && this.dragState.nodeId) {
+        e.preventDefault();
+        const node = this.state.nodes.get(this.dragState.nodeId);
+        if (node) {
+          const dx = (touch.clientX - this.dragState.startX) / this.state.zoom;
+          const dy = (touch.clientY - this.dragState.startY) / this.state.zoom;
+          const newX = this.dragState.offsetX + dx;
+          const newY = this.dragState.offsetY + dy;
+          const nodeIdStr = node.id;
+          this.handleNodeMove(nodeIdStr, newX, newY);
+          const domainNode = this.nodeCache.get(nodeIdStr);
+          if (domainNode) {
+            this.nodeRenderer.updateNodePosition(domainNode);
+          }
+          const connections = this.nodeEditorService.getAllConnections();
+          this.connectionRenderer.updateConnections(connections);
+        }
+        return;
+      }
+
+      // パン
+      if (this.dragState.isDragging && !this.dragState.nodeId) {
+        e.preventDefault();
+        const dx = touch.clientX - this.dragState.startX;
+        const dy = touch.clientY - this.dragState.startY;
+        this.state.pan.x = this.dragState.offsetX + dx;
+        this.state.pan.y = this.dragState.offsetY + dy;
+        this.updateTransform();
+        return;
+      }
+
+      // 接続ドラッグ
+      if (this.connectionDrag.isConnecting) {
+        e.preventDefault();
+        const svgRect = this.svgContainer.getBoundingClientRect();
+        this.connectionDrag.currentX = (touch.clientX - svgRect.left) / this.state.zoom;
+        this.connectionDrag.currentY = (touch.clientY - svgRect.top) / this.state.zoom;
+        if (this.connectionDrag.fromSocket) {
+          const socketId = this.connectionDrag.fromSocket.id;
+          this.connectionRenderer.updateConnectionPreview(
+            socketId,
+            this.connectionDrag.currentX,
+            this.connectionDrag.currentY
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * タッチ終了
+   */
+  private handleTouchEnd(e: TouchEvent): void {
+    this.clearLongPressTimer();
+
+    // ピンチ終了
+    if (this.touchState.isTwoFingerTouch && e.touches.length < 2) {
+      this.touchState.isTwoFingerTouch = false;
+      // 1本指が残っている場合は新しいパン開始点として設定
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        this.dragState = {
+          isDragging: true,
+          startX: touch.clientX,
+          startY: touch.clientY,
+          offsetX: this.state.pan.x,
+          offsetY: this.state.pan.y,
+        };
+      }
+      return;
+    }
+
+    // 接続ドラッグ終了
+    if (this.connectionDrag.isConnecting && e.changedTouches.length > 0) {
+      const touch = e.changedTouches[0];
+      const targetSocket = this.getSocketAtPosition(touch.clientX, touch.clientY);
+      if (targetSocket && this.connectionDrag.fromSocket) {
+        const fromNode = this.nodeCache.get(this.connectionDrag.fromSocket.nodeId);
+        if (fromNode) {
+          const fromSocket = fromNode.getSocket(this.connectionDrag.fromSocket.id);
+          if (fromSocket) {
+            this.createConnection(fromSocket, targetSocket);
+          }
+        }
+      }
+      this.connectionDrag.isConnecting = false;
+      this.connectionRenderer.removeConnectionPreview();
+      this.container.classList.remove('connecting');
+    }
+
+    // ドラッグ終了
+    if (e.touches.length === 0) {
+      this.dragState.isDragging = false;
+      this.dragState.nodeId = undefined;
+    }
+  }
+
+  /**
+   * ソケットのタッチ処理
+   */
+  private handleSocketTouch(socket: Socket, _touch: Touch): void {
+    // 既に接続されている入力ソケットの場合は切断
+    if (socket.direction === 'input' && this.isSocketConnected(socket.id.value)) {
+      this.disconnectSocket(socket.id.value);
+      return;
+    }
+
+    // 接続ドラッグ開始
+    this.startConnectionDrag(socket);
+  }
+
+  /**
+   * ノードのタッチドラッグ開始
+   */
+  private handleNodeTouchStart(touch: Touch, node: Node): void {
+    this.dragState = {
+      isDragging: true,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      nodeId: node.id.value,
+      offsetX: node.position.x,
+      offsetY: node.position.y,
+    };
   }
 
   private updateTransform(): void {
