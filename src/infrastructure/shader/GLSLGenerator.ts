@@ -36,17 +36,23 @@ export class GLSLGenerator implements IShaderGenerator {
   }
 
   private getDefaultValue(type: SocketType, value?: number | number[]): string {
+    // Helper to format number as GLSL float literal
+    const toFloat = (n: number): string => {
+      const s = String(n);
+      return s.includes('.') ? s : s + '.0';
+    };
+
     if (value !== undefined) {
       if (Array.isArray(value)) {
         switch (type) {
-          case 'vec2': return `vec2(${value[0] ?? 0}, ${value[1] ?? 0})`;
+          case 'vec2': return `vec2(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)})`;
           case 'vec3': 
-          case 'color': return `vec3(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0})`;
-          case 'vec4': return `vec4(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0}, ${value[3] ?? 1})`;
-          default: return String(value[0] ?? 0);
+          case 'color': return `vec3(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)}, ${toFloat(value[2] ?? 0)})`;
+          case 'vec4': return `vec4(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)}, ${toFloat(value[2] ?? 0)}, ${toFloat(value[3] ?? 1)})`;
+          default: return toFloat(value[0] ?? 0);
         }
       }
-      return String(value);
+      return toFloat(value);
     }
     switch (type) {
       case 'vec2': return 'vec2(0.0, 0.0)';
