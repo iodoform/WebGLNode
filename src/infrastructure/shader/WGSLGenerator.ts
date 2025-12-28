@@ -2,7 +2,6 @@ import { Node } from '../../domain/entities/Node';
 import { Connection } from '../../domain/entities/Connection';
 import { SocketType } from '../../domain/value-objects/SocketType';
 import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
-import type { NodeDefinition } from '../../types';
 
 /**
  * WGSLシェーダー生成器
