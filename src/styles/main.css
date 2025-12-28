@@ -571,30 +571,22 @@ html, body {
 
 /* ======== タッチ操作対応 ======== */
 
-/* タッチデバイスでのソケットサイズを大きく */
+/* タッチデバイスでのタッチターゲット拡大（見た目は維持） */
 @media (pointer: coarse) {
-  :root {
-    --socket-size: 18px;
-  }
-
+  /* ソケットの視覚サイズは維持し、疑似要素でタッチ領域を拡大 */
   .socket {
-    /* より大きなタッチターゲット */
-    min-width: 44px;
-    min-height: 44px;
-    /* 視覚的なサイズは維持 */
-    background-clip: content-box;
-    padding: calc((44px - var(--socket-size)) / 2);
-    margin: calc((var(--socket-size) - 44px) / 2);
+    position: relative;
   }
 
-  .socket-input {
-    margin-left: calc(-18px - (44px - var(--socket-size)) / 2);
-    margin-right: 0;
-  }
-
-  .socket-output {
-    margin-right: calc(-18px - (44px - var(--socket-size)) / 2);
-    margin-left: 0;
+  .socket::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    /* デバッグ用: background: rgba(255,0,0,0.2); */
   }
 
   .node-header {
@@ -617,6 +609,11 @@ html, body {
   .node-vector-input-field {
     font-size: 16px; /* iOSのズーム防止 */
     padding: 6px 8px;
+  }
+
+  /* ノード全体をドラッグ可能にするためのスタイル */
+  .node {
+    touch-action: none;
   }
 }
 
