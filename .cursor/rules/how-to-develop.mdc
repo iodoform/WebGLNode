@@ -1,0 +1,6 @@
+---
+description: "This rule provides how to proceed development"
+alwaysApply: true
+---
+1. このプロジェクトはDDDに基づいて設計しているため，開発を行う際はその設計思想に基づき，必要に応じて無理のない範囲で値オブジェクト・エンティティ・ドメインサービス・アプリケーションサービス・リポジトリなどを作成してください．
+2. 開発を進める際の指針として`DDD_ARCHITECTURE.md`を参考にしてください．
