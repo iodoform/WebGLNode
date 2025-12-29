@@ -456,18 +456,26 @@ export class NodeEditor {
       }
 
       // ノード全体をタッチした場合（ドラッグ開始）
+      // ただし、ソケットや入力フィールド上では開始しない
       const nodeEl = target.closest('.node') as HTMLElement | null;
       if (nodeEl) {
-        e.preventDefault();
-        const nodeId = nodeEl.dataset.nodeId;
-        if (nodeId) {
-          const node = this.nodeEditorService.getNode(nodeId);
-          if (node) {
-            this.handleNodeTouchStart(touch, node);
-            // ノード選択も行う
-            this.state.selectedNodes.clear();
-            this.state.selectedNodes.add(nodeId);
-            this.nodeRenderer.updateSelectionDisplay(this.state.selectedNodes);
+        // ソケットや入力フィールド上でない場合のみドラッグ開始
+        if (!target.closest('.socket') && 
+            !target.closest('.node-input-field') && 
+            !target.closest('.node-vector-input-field') &&
+            !target.closest('.node-color-picker') &&
+            !target.closest('.node-large-color-picker')) {
+          e.preventDefault();
+          const nodeId = nodeEl.dataset.nodeId;
+          if (nodeId) {
+            const node = this.nodeEditorService.getNode(nodeId);
+            if (node) {
+              this.handleNodeTouchStart(touch, node);
+              // ノード選択も行う
+              this.state.selectedNodes.clear();
+              this.state.selectedNodes.add(nodeId);
+              this.nodeRenderer.updateSelectionDisplay(this.state.selectedNodes);
+            }
           }
         }
         return;

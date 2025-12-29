@@ -110,6 +110,20 @@ export class NodeRenderer {
 
     nodeEl.appendChild(content);
 
+    // Drag handling on entire node (except sockets and input fields)
+    nodeEl.addEventListener('mousedown', (e) => {
+      // Don't start drag if clicking on socket, input field, or color picker
+      const target = e.target as HTMLElement;
+      if (target.closest('.socket') || 
+          target.closest('.node-input-field') || 
+          target.closest('.node-vector-input-field') ||
+          target.closest('.node-color-picker') ||
+          target.closest('.node-large-color-picker')) {
+        return;
+      }
+      this.onNodeDragStart(node, e);
+    });
+
     // Selection handling
     nodeEl.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('.socket')) {
