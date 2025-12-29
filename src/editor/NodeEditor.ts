@@ -10,6 +10,7 @@ import { MenuManager } from '../infrastructure/rendering/MenuManager';
 import { NodeEditorService } from '../application/services/NodeEditorService';
 import { InMemoryNodeRepository } from '../infrastructure/repositories/InMemoryNodeRepository';
 import { InMemoryConnectionRepository } from '../infrastructure/repositories/InMemoryConnectionRepository';
+import { NodeGraph } from '../domain/entities/NodeGraph';
 import { Position } from '../domain/value-objects/Position';
 import { NodeId } from '../domain/value-objects/Id';
 import { ConnectionId } from '../domain/value-objects/Id';
@@ -68,6 +69,7 @@ export class NodeEditor {
   private readonly LONG_PRESS_DURATION = 500;
 
   // DDD Services
+  private nodeGraph: NodeGraph;
   private nodeRepository: InMemoryNodeRepository;
   private connectionRepository: InMemoryConnectionRepository;
   private nodeEditorService: NodeEditorService;
@@ -83,6 +85,10 @@ export class NodeEditor {
 
   // Shader generator (injectable for WebGPU/WebGL support)
   private shaderGenerator: IShaderGenerator;
+  
+  // イベントハンドラーの参照を保持（削除用）
+  private boundMouseMoveHandler: (e: MouseEvent) => void;
+  private boundMouseUpHandler: (e: MouseEvent) => void;
 
   constructor(containerId: string, shaderGenerator?: IShaderGenerator) {
     const container = document.getElementById(containerId);
@@ -93,9 +99,11 @@ export class NodeEditor {
     this.shaderGenerator = shaderGenerator || new WGSLGenerator();
 
     // Initialize DDD repositories and services
+    this.nodeGraph = new NodeGraph();
     this.nodeRepository = new InMemoryNodeRepository();
     this.connectionRepository = new InMemoryConnectionRepository();
     this.nodeEditorService = new NodeEditorService(
+      this.nodeGraph,
       this.nodeRepository,
       this.connectionRepository
     );
@@ -164,6 +172,10 @@ export class NodeEditor {
       () => this.state.zoom
     );
 
+    // イベントハンドラーの参照を初期化
+    this.boundMouseMoveHandler = this.handleMouseMove.bind(this);
+    this.boundMouseUpHandler = this.handleMouseUp.bind(this);
+
     this.setupEventListeners();
     this.createDefaultNodes();
   }
@@ -210,6 +222,8 @@ export class NodeEditor {
 
   private handlePanStart(e: MouseEvent): void {
     if (e.button !== 0) return;
+    // ノードドラッグ中はパンを開始しない
+    if (this.dragState.nodeId) return;
     if ((e.target as HTMLElement).closest('.node')) return;
     if ((e.target as HTMLElement).closest('.connection')) return;
 
@@ -230,14 +244,9 @@ export class NodeEditor {
   }
 
   private handleMouseMove(e: MouseEvent): void {
-    if (this.dragState.isDragging && !this.dragState.nodeId) {
-      // Panning
-      const dx = e.clientX - this.dragState.startX;
-      const dy = e.clientY - this.dragState.startY;
-      this.state.pan.x = this.dragState.offsetX + dx;
-      this.state.pan.y = this.dragState.offsetY + dy;
-      this.updateTransform();
-    } else if (this.dragState.isDragging && this.dragState.nodeId) {
+    // ノードドラッグを優先
+    if (this.dragState.isDragging && this.dragState.nodeId) {
+      e.preventDefault(); // ノードドラッグ中はデフォルト動作を防止
       // Moving node
       const node = this.state.nodes.get(this.dragState.nodeId);
       if (node) {
@@ -254,6 +263,13 @@ export class NodeEditor {
         const connections = this.nodeEditorService.getAllConnections();
         this.connectionRenderer.updateConnections(connections);
       }
+    } else if (this.dragState.isDragging && !this.dragState.nodeId) {
+      // Panning
+      const dx = e.clientX - this.dragState.startX;
+      const dy = e.clientY - this.dragState.startY;
+      this.state.pan.x = this.dragState.offsetX + dx;
+      this.state.pan.y = this.dragState.offsetY + dy;
+      this.updateTransform();
     } else if (this.connectionDrag.isConnecting) {
       const svgRect = this.svgContainer.getBoundingClientRect();
       this.connectionDrag.currentX = (e.clientX - svgRect.left) / this.state.zoom;
@@ -286,6 +302,20 @@ export class NodeEditor {
       this.connectionDrag.isConnecting = false;
       this.connectionRenderer.removeConnectionPreview();
       this.container.classList.remove('connecting');
+    }
+
+    // ノードドラッグが終了した場合、documentからイベントリスナーを削除
+    if (this.dragState.nodeId) {
+      // ドラッグ終了時にリポジトリに保存（ドラッグ中はキャッシュのみ更新していたため）
+      try {
+        const nodeIdObj = new NodeId(this.dragState.nodeId);
+        this.nodeEditorService.saveNode(nodeIdObj);
+      } catch (error) {
+        console.warn('Failed to save node after drag:', error);
+      }
+      
+      document.removeEventListener('mousemove', this.boundMouseMoveHandler);
+      document.removeEventListener('mouseup', this.boundMouseUpHandler);
     }
 
     this.dragState.isDragging = false;
@@ -733,14 +763,21 @@ export class NodeEditor {
   private handleNodeDragStart(e: MouseEvent, node: Node): void {
     e.stopPropagation();
     
+    // NodeGraphから最新のノードを取得（前回のドラッグで位置が更新されている可能性がある）
+    const latestNode = this.nodeEditorService.getNode(node.id) || node;
+    
     this.dragState = {
       isDragging: true,
       startX: e.clientX,
       startY: e.clientY,
-      nodeId: node.id.value,
-      offsetX: node.position.x,
-      offsetY: node.position.y,
+      nodeId: latestNode.id.value,
+      offsetX: latestNode.position.x,
+      offsetY: latestNode.position.y,
     };
+    
+    // ドラッグ中はdocumentにmousemoveとmouseupを登録（マウスがノード外に出ても追跡できるように）
+    document.addEventListener('mousemove', this.boundMouseMoveHandler);
+    document.addEventListener('mouseup', this.boundMouseUpHandler);
   }
 
   private handleNodeClick(node: Node, e: MouseEvent): void {
@@ -757,7 +794,10 @@ export class NodeEditor {
     try {
       const nodeIdObj = new NodeId(nodeId);
       const newPosition = new Position(newX, newY);
-      this.nodeEditorService.moveNode(nodeIdObj, newPosition);
+      // キャッシュを高速に更新（リポジトリへの保存は行わない）
+      const updatedNode = this.nodeEditorService.moveNodeAndGetUpdated(nodeIdObj, newPosition);
+      // NodeGraphから取得した最新のノードでキャッシュを更新
+      this.nodeCache.set(nodeId, updatedNode);
       
       // Update legacy state
       const node = this.state.nodes.get(nodeId);
@@ -795,6 +835,10 @@ export class NodeEditor {
       );
 
       // Update rendering
+      // リポジトリから全接続を取得してレンダリング
+      // 将来的にリポジトリが非同期になった場合、保存が完了する前に
+      // getAllConnections()が呼ばれると最新の接続が取得できない可能性があるため、
+      // その場合は接続キャッシュを導入するか、作成された接続を直接使用する必要がある
       const connections = this.nodeEditorService.getAllConnections();
       this.connectionRenderer.updateConnections(connections);
       this.nodeRenderer.updateSocketDisplay(from.id.value, true);
