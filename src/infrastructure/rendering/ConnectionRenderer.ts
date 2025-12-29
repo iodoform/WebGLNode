@@ -12,7 +12,8 @@ export class ConnectionRenderer {
   constructor(
     private svgContainer: SVGSVGElement,
     private nodeContainer: HTMLElement,
-    private nodes: Map<string, Node>,
+    private getNode: (nodeId: string) => Node | undefined,
+    private getAllNodes: () => Node[],
     private getZoom: () => number,
     private onConnectionClick: (connectionId: string) => void,
     private onConnectionDelete: (connectionId: string) => void
@@ -46,7 +47,7 @@ export class ConnectionRenderer {
     path.setAttribute('data-connection-id', connection.id.value);
     
     // Color based on socket type
-    const fromNode = this.nodes.get(connection.fromNodeId.value);
+    const fromNode = this.getNode(connection.fromNodeId.value);
     const fromSocket = fromNode?.outputs.find(s => s.id.equals(connection.fromSocketId));
     const color = this.getSocketColor(fromSocket?.type || 'float');
     path.style.stroke = color;
@@ -114,7 +115,7 @@ export class ConnectionRenderer {
     path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
     path.classList.add('connection', 'connection-preview');
     
-    const fromNode = Array.from(this.nodes.values()).find(n => 
+    const fromNode = this.getAllNodes().find(n => 
       n.outputs.some(s => s.id.value === fromSocketId) || n.inputs.some(s => s.id.value === fromSocketId)
     );
     const fromSocket = fromNode?.outputs.find(s => s.id.value === fromSocketId) || 

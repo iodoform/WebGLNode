@@ -11,9 +11,6 @@ import { NodeEditorService } from '../application/services/NodeEditorService';
 import { InMemoryNodeRepository } from '../infrastructure/repositories/InMemoryNodeRepository';
 import { InMemoryConnectionRepository } from '../infrastructure/repositories/InMemoryConnectionRepository';
 import { NodeGraph } from '../domain/entities/NodeGraph';
-import { Position } from '../domain/value-objects/Position';
-import { NodeId } from '../domain/value-objects/Id';
-import { ConnectionId } from '../domain/value-objects/Id';
 import { nodeDefinitionLoader } from '../nodes/NodeDefinitionLoader';
 
 /**
@@ -74,8 +71,6 @@ export class NodeEditor {
   private connectionRepository: InMemoryConnectionRepository;
   private nodeEditorService: NodeEditorService;
   
-  // Cache for rendering (maps node IDs to domain entities)
-  private nodeCache: Map<string, Node> = new Map();
 
   // Renderers
   private inputFieldRenderer: InputFieldRenderer;
@@ -142,8 +137,7 @@ export class NodeEditor {
       (socketId) => this.isSocketConnected(socketId),
       () => this.triggerShaderUpdate(),
       (nodeId, name, value) => {
-        const nodeIdObj = new NodeId(nodeId);
-        this.nodeEditorService.updateNodeValue(nodeIdObj, name, value);
+        this.nodeEditorService.updateNodeValue(nodeId, name, value);
       }
     );
 
@@ -159,7 +153,8 @@ export class NodeEditor {
     this.connectionRenderer = new ConnectionRenderer(
       this.svgContainer,
       this.nodeContainer,
-      this.nodeCache,
+      (nodeId: string) => this.nodeEditorService.getNode(nodeId),
+      () => this.nodeEditorService.getAllNodes(),
       () => this.state.zoom,
       (connectionId) => this.handleConnectionClick(connectionId),
       (connectionId) => this.deleteConnection(connectionId)
@@ -256,7 +251,7 @@ export class NodeEditor {
         const newY = this.dragState.offsetY + dy;
         const nodeIdStr = node.id;
         this.handleNodeMove(nodeIdStr, newX, newY);
-        const domainNode = this.nodeCache.get(nodeIdStr);
+        const domainNode = this.nodeEditorService.getNode(nodeIdStr);
         if (domainNode) {
           this.nodeRenderer.updateNodePosition(domainNode);
         }
@@ -291,7 +286,7 @@ export class NodeEditor {
       const targetSocket = this.getSocketAtPosition(e.clientX, e.clientY);
       if (targetSocket && this.connectionDrag.fromSocket) {
       // Reconstruct Socket from connectionDrag state
-      const fromNode = this.nodeCache.get(this.connectionDrag.fromSocket.nodeId);
+      const fromNode = this.nodeEditorService.getNode(this.connectionDrag.fromSocket.nodeId);
       if (fromNode) {
         const fromSocket = fromNode.getSocket(this.connectionDrag.fromSocket.id);
         if (fromSocket) {
@@ -308,8 +303,7 @@ export class NodeEditor {
     if (this.dragState.nodeId) {
       // ドラッグ終了時にリポジトリに保存（ドラッグ中はキャッシュのみ更新していたため）
       try {
-        const nodeIdObj = new NodeId(this.dragState.nodeId);
-        this.nodeEditorService.saveNode(nodeIdObj);
+        this.nodeEditorService.saveNode(this.dragState.nodeId);
       } catch (error) {
         console.warn('Failed to save node after drag:', error);
       }
@@ -444,7 +438,7 @@ export class NodeEditor {
         const socketId = socketEl.dataset.socketId;
         const nodeId = socketEl.dataset.nodeId;
         if (socketId && nodeId) {
-          const node = this.nodeCache.get(nodeId);
+          const node = this.nodeEditorService.getNode(nodeId);
           if (node) {
             const socket = node.getSocket(socketId);
             if (socket) {
@@ -467,7 +461,7 @@ export class NodeEditor {
         e.preventDefault();
         const nodeId = nodeEl.dataset.nodeId;
         if (nodeId) {
-          const node = this.nodeCache.get(nodeId);
+          const node = this.nodeEditorService.getNode(nodeId);
           if (node) {
             this.handleNodeTouchStart(touch, node);
             // ノード選択も行う
@@ -564,7 +558,7 @@ export class NodeEditor {
           const newY = this.dragState.offsetY + dy;
           const nodeIdStr = node.id;
           this.handleNodeMove(nodeIdStr, newX, newY);
-          const domainNode = this.nodeCache.get(nodeIdStr);
+          const domainNode = this.nodeEditorService.getNode(nodeIdStr);
           if (domainNode) {
             this.nodeRenderer.updateNodePosition(domainNode);
           }
@@ -631,7 +625,7 @@ export class NodeEditor {
       const touch = e.changedTouches[0];
       const targetSocket = this.getSocketAtPosition(touch.clientX, touch.clientY);
       if (targetSocket && this.connectionDrag.fromSocket) {
-        const fromNode = this.nodeCache.get(this.connectionDrag.fromSocket.nodeId);
+        const fromNode = this.nodeEditorService.getNode(this.connectionDrag.fromSocket.nodeId);
         if (fromNode) {
           const fromSocket = fromNode.getSocket(this.connectionDrag.fromSocket.id);
           if (fromSocket) {
@@ -692,14 +686,11 @@ export class NodeEditor {
     const definition = nodeDefinitionLoader.getDefinition(definitionId);
     if (!definition) return null;
 
-    const position = new Position(x, y);
-    const domainNode = this.nodeEditorService.addNode(definition, position);
+    const domainNode = this.nodeEditorService.addNode(definition, x, y);
     
-    // Update cache and render
-    this.nodeCache.set(domainNode.id.value, domainNode);
+    // Update state and render
     this.syncNodeCacheToState();
     this.nodeRenderer.renderNode(domainNode);
-    this.updateConnectionRendererNodes();
     this.triggerShaderUpdate();
     
     return domainNode;
@@ -709,7 +700,8 @@ export class NodeEditor {
     // Keep state.nodes in sync for EditorState compatibility
     // This is temporary until EditorState is fully migrated
     this.state.nodes.clear();
-    for (const node of this.nodeCache.values()) {
+    const allNodes = this.nodeEditorService.getAllNodes();
+    for (const node of allNodes) {
       // Create minimal state entry (for compatibility)
       this.state.nodes.set(node.id.value, {
         id: node.id.value,
@@ -723,10 +715,6 @@ export class NodeEditor {
     }
   }
   
-  private updateConnectionRendererNodes(): void {
-    // Update ConnectionRenderer's node map
-    (this.connectionRenderer as any).nodes = this.nodeCache;
-  }
 
   private handleSocketClick(socket: Socket, e: MouseEvent): void {
     e.stopPropagation();
@@ -745,7 +733,7 @@ export class NodeEditor {
         // Don't create connection if clicking on the same socket we started from
         if (this.connectionDrag.fromSocket.id !== socket.id.value) {
           // Reconstruct Socket from connectionDrag state
-          const fromNode = this.nodeCache.get(this.connectionDrag.fromSocket.nodeId);
+          const fromNode = this.nodeEditorService.getNode(this.connectionDrag.fromSocket.nodeId);
           if (fromNode) {
             const fromSocket = fromNode.getSocket(this.connectionDrag.fromSocket.id);
             if (fromSocket) {
@@ -764,7 +752,7 @@ export class NodeEditor {
     e.stopPropagation();
     
     // NodeGraphから最新のノードを取得（前回のドラッグで位置が更新されている可能性がある）
-    const latestNode = this.nodeEditorService.getNode(node.id) || node;
+    const latestNode = this.nodeEditorService.getNode(node.id.value) || node;
     
     this.dragState = {
       isDragging: true,
@@ -792,12 +780,8 @@ export class NodeEditor {
 
   private handleNodeMove(nodeId: string, newX: number, newY: number): void {
     try {
-      const nodeIdObj = new NodeId(nodeId);
-      const newPosition = new Position(newX, newY);
-      // キャッシュを高速に更新（リポジトリへの保存は行わない）
-      const updatedNode = this.nodeEditorService.moveNodeAndGetUpdated(nodeIdObj, newPosition);
-      // NodeGraphから取得した最新のノードでキャッシュを更新
-      this.nodeCache.set(nodeId, updatedNode);
+      // NodeGraph内のノードを更新（リポジトリへの保存は行わない）
+      this.nodeEditorService.moveNodeAndGetUpdated(nodeId, newX, newY);
       
       // Update legacy state
       const node = this.state.nodes.get(nodeId);
@@ -830,8 +814,8 @@ export class NodeEditor {
     try {
       // Use domain service to create connection
       this.nodeEditorService.createConnection(
-        from.id,
-        to.id
+        from.id.value,
+        to.id.value
       );
 
       // Update rendering
@@ -844,7 +828,7 @@ export class NodeEditor {
       this.nodeRenderer.updateSocketDisplay(from.id.value, true);
       this.nodeRenderer.updateSocketDisplay(to.id.value, true);
       
-      const toNode = this.nodeCache.get(to.nodeId.value);
+      const toNode = this.nodeEditorService.getNode(to.nodeId.value);
       if (toNode) {
         this.nodeRenderer.updateNodeInputFields(toNode);
       }
@@ -884,8 +868,7 @@ export class NodeEditor {
     
     try {
       // Use domain service to delete connection
-      const domainConnectionId = new ConnectionId(connectionId);
-      this.nodeEditorService.deleteConnection(domainConnectionId);
+      this.nodeEditorService.deleteConnection(connectionId);
       
       // Update rendering
       const updatedConnections = this.nodeEditorService.getAllConnections();
@@ -900,7 +883,7 @@ export class NodeEditor {
       );
       
       // Update input fields for the node that had the input connection
-      const toNode = this.nodeCache.get(connection.toNodeId.value);
+      const toNode = this.nodeEditorService.getNode(connection.toNodeId.value);
       if (toNode) {
         this.nodeRenderer.updateNodeInputFields(toNode);
       }
@@ -922,7 +905,7 @@ export class NodeEditor {
         const socketId = (el as HTMLElement).dataset.socketId;
         const nodeId = (el as HTMLElement).dataset.nodeId;
         if (socketId && nodeId) {
-          const node = this.nodeCache.get(nodeId);
+          const node = this.nodeEditorService.getNode(nodeId);
           if (node) {
             return [...node.inputs, ...node.outputs].find(s => s.id.value === socketId);
           }
@@ -935,16 +918,14 @@ export class NodeEditor {
   private deleteSelectedNodes(): void {
     for (const nodeIdStr of this.state.selectedNodes) {
       // Don't delete output node
-      const node = this.nodeCache.get(nodeIdStr);
+      const node = this.nodeEditorService.getNode(nodeIdStr);
       if (node?.definitionId === 'output_color') continue;
 
       try {
         // Use domain service to delete node
-        const nodeId = new NodeId(nodeIdStr);
-        this.nodeEditorService.deleteNode(nodeId);
+        this.nodeEditorService.deleteNode(nodeIdStr);
         
-        // Remove from cache
-        this.nodeCache.delete(nodeIdStr);
+        // Update state
         this.syncNodeCacheToState();
 
         // Remove node DOM element

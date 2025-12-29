@@ -2,9 +2,7 @@ import { Node } from '../../domain/entities/Node';
 import { Connection } from '../../domain/entities/Connection';
 import { NodeGraph } from '../../domain/entities/NodeGraph';
 import { Position } from '../../domain/value-objects/Position';
-import { NodeId } from '../../domain/value-objects/Id';
-import { SocketId } from '../../domain/value-objects/Id';
-import { ConnectionId } from '../../domain/value-objects/Id';
+import { NodeId, SocketId, ConnectionId } from '../../domain/value-objects/Id';
 import { INodeRepository } from '../../domain/repositories/INodeRepository';
 import { IConnectionRepository } from '../../domain/repositories/IConnectionRepository';
 import { AddNodeUseCase } from '../use-cases/AddNodeUseCase';
@@ -39,7 +37,10 @@ export class NodeEditorService {
   /**
    * ノードを追加
    */
-  addNode(definition: NodeDefinition, position: Position): Node {
+  addNode(definition: NodeDefinition, x: number, y: number): Node {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const position = new Position(x, y);
+    
     // ドメインロジックを実行（NodeGraphを使用）
     const node = this.addNodeUseCase.execute(this.nodeGraph, definition, position);
     
@@ -52,7 +53,11 @@ export class NodeEditorService {
   /**
    * 接続を作成
    */
-  createConnection(fromSocketId: SocketId, toSocketId: SocketId): Connection {
+  createConnection(fromSocketIdStr: string, toSocketIdStr: string): Connection {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const fromSocketId = new SocketId(fromSocketIdStr);
+    const toSocketId = new SocketId(toSocketIdStr);
+    
     // ドメインロジックを実行（NodeGraphを使用）
     const result = this.createConnectionUseCase.execute(
       this.nodeGraph,
@@ -74,7 +79,10 @@ export class NodeEditorService {
   /**
    * ノードを削除
    */
-  deleteNode(nodeId: NodeId): void {
+  deleteNode(nodeIdStr: string): void {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const nodeId = new NodeId(nodeIdStr);
+    
     // ドメインロジックを実行（NodeGraphを使用）
     const result = this.deleteNodeUseCase.execute(this.nodeGraph, nodeId);
 
@@ -90,7 +98,10 @@ export class NodeEditorService {
   /**
    * 接続を削除
    */
-  deleteConnection(connectionId: ConnectionId): void {
+  deleteConnection(connectionIdStr: string): void {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const connectionId = new ConnectionId(connectionIdStr);
+    
     // ドメインロジックを実行（NodeGraphを使用）
     const connectionToDelete = this.deleteConnectionUseCase.execute(
       this.nodeGraph,
@@ -107,11 +118,16 @@ export class NodeEditorService {
    * キャッシュを高速に更新するため、リポジトリへの保存は行いません。
    * リポジトリへの保存が必要な場合は、別途saveNodeを呼び出してください。
    * 
-   * @param nodeId 移動するノードのID
-   * @param position 新しい位置
+   * @param nodeIdStr 移動するノードのID（文字列）
+   * @param x 新しいX座標
+   * @param y 新しいY座標
    * @returns 更新されたノードエンティティ（キャッシュ更新用）
    */
-  moveNodeAndGetUpdated(nodeId: NodeId, position: Position): Node {
+  moveNodeAndGetUpdated(nodeIdStr: string, x: number, y: number): Node {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const nodeId = new NodeId(nodeIdStr);
+    const position = new Position(x, y);
+    
     const node = this.nodeGraph.getNode(nodeId);
     if (!node) {
       throw new Error('Node not found');
@@ -127,9 +143,12 @@ export class NodeEditorService {
    * ドラッグ中など頻繁な更新が発生する場合は、非同期で実行するか
    * ドラッグ終了時にまとめて保存することを推奨します。
    * 
-   * @param nodeId 保存するノードのID
+   * @param nodeIdStr 保存するノードのID（文字列）
    */
-  saveNode(nodeId: NodeId): void {
+  saveNode(nodeIdStr: string): void {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const nodeId = new NodeId(nodeIdStr);
+    
     const node = this.nodeGraph.getNode(nodeId);
     if (!node) {
       throw new Error('Node not found');
@@ -140,7 +159,10 @@ export class NodeEditorService {
   /**
    * ノードの値を更新
    */
-  updateNodeValue(nodeId: NodeId, name: string, value: number | number[]): void {
+  updateNodeValue(nodeIdStr: string, name: string, value: number | number[]): void {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const nodeId = new NodeId(nodeIdStr);
+    
     const node = this.nodeGraph.getNode(nodeId);
     if (!node) {
       throw new Error('Node not found');
@@ -166,14 +188,20 @@ export class NodeEditorService {
   /**
    * ノードを取得
    */
-  getNode(nodeId: NodeId): Node | undefined {
+  getNode(nodeIdStr: string): Node | undefined {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const nodeId = new NodeId(nodeIdStr);
+    
     return this.nodeGraph.getNode(nodeId);
   }
 
   /**
    * 接続を取得
    */
-  getConnection(connectionId: ConnectionId): Connection | undefined {
+  getConnection(connectionIdStr: string): Connection | undefined {
+    // 値オブジェクトを生成（アプリケーション層の責務）
+    const connectionId = new ConnectionId(connectionIdStr);
+    
     const connections = this.nodeGraph.getAllConnections();
     return connections.find(c => c.id.equals(connectionId));
   }
