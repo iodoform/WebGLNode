@@ -27,9 +27,7 @@ export class GLSLGenerator implements IShaderGenerator {
   private typeToGLSL(type: SocketType): string {
     switch (type) {
       case 'float': return 'float';
-      case 'vec2': return 'vec2';
       case 'vec3': return 'vec3';
-      case 'vec4': return 'vec4';
       case 'color': return 'vec3';
       default: return 'float';
     }
@@ -45,20 +43,22 @@ export class GLSLGenerator implements IShaderGenerator {
     if (value !== undefined) {
       if (Array.isArray(value)) {
         switch (type) {
-          case 'vec2': return `vec2(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)})`;
           case 'vec3': 
-          case 'color': return `vec3(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)}, ${toFloat(value[2] ?? 0)})`;
-          case 'vec4': return `vec4(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)}, ${toFloat(value[2] ?? 0)}, ${toFloat(value[3] ?? 1)})`;
+          case 'color': {
+            // If array has 2 elements, treat as vec2 and convert to vec3 (z=0)
+            if (value.length === 2) {
+              return `vec3(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)}, 0.0)`;
+            }
+            return `vec3(${toFloat(value[0] ?? 0)}, ${toFloat(value[1] ?? 0)}, ${toFloat(value[2] ?? 0)})`;
+          }
           default: return toFloat(value[0] ?? 0);
         }
       }
       return toFloat(value);
     }
     switch (type) {
-      case 'vec2': return 'vec2(0.0, 0.0)';
       case 'vec3':
       case 'color': return 'vec3(0.0, 0.0, 0.0)';
-      case 'vec4': return 'vec4(0.0, 0.0, 0.0, 1.0)';
       default: return '0.0';
     }
   }

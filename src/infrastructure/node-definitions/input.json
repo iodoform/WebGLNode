@@ -7,11 +7,11 @@
     "color": "#ef4444",
     "inputs": [],
     "outputs": [
-      { "name": "UV", "type": "vec2" }
+      { "name": "UV", "type": "vec3" }
     ],
     "code": {
-      "webgpu": "fn node_{{id}}() -> vec2f { return uv; }",
-      "webgl": "vec2 node_{{id}}() { return vUv; }"
+      "webgpu": "fn node_{{id}}() -> vec3f { return vec3f(uv, 0.0); }",
+      "webgl": "vec3 node_{{id}}() { return vec3(vUv, 0.0); }"
     }
   },
   {
@@ -37,11 +37,11 @@
     "color": "#ef4444",
     "inputs": [],
     "outputs": [
-      { "name": "Resolution", "type": "vec2" }
+      { "name": "Resolution", "type": "vec3" }
     ],
     "code": {
-      "webgpu": "fn node_{{id}}() -> vec2f { return uniforms.resolution; }",
-      "webgl": "vec2 node_{{id}}() { return u_resolution; }"
+      "webgpu": "fn node_{{id}}() -> vec3f { return vec3f(uniforms.resolution, 0.0); }",
+      "webgl": "vec3 node_{{id}}() { return vec3(u_resolution, 0.0); }"
     }
   },
   {
@@ -52,11 +52,11 @@
     "color": "#ef4444",
     "inputs": [],
     "outputs": [
-      { "name": "Position", "type": "vec2" }
+      { "name": "Position", "type": "vec3" }
     ],
     "code": {
-      "webgpu": "fn node_{{id}}() -> vec2f { return uniforms.mouse; }",
-      "webgl": "vec2 node_{{id}}() { return u_mouse; }"
+      "webgpu": "fn node_{{id}}() -> vec3f { return vec3f(uniforms.mouse, 0.0); }",
+      "webgl": "vec3 node_{{id}}() { return vec3(u_mouse, 0.0); }"
     }
   },
   {
@@ -80,18 +80,18 @@
     "id": "input_vec2",
     "name": "Vector 2D",
     "category": "Input",
-    "description": "A constant vec2 value",
-    "color": "#63c7ff",
+    "description": "A constant vec3 value (z=0)",
+    "color": "#6363ff",
     "inputs": [
       { "name": "X", "type": "float", "default": 0 },
       { "name": "Y", "type": "float", "default": 0 }
     ],
     "outputs": [
-      { "name": "Vector", "type": "vec2" }
+      { "name": "Vector", "type": "vec3" }
     ],
     "code": {
-      "webgpu": "fn node_{{id}}(x: f32, y: f32) -> vec2f { return vec2f(x, y); }",
-      "webgl": "vec2 node_{{id}}(float x, float y) { return vec2(x, y); }"
+      "webgpu": "fn node_{{id}}(x: f32, y: f32) -> vec3f { return vec3f(x, y, 0.0); }",
+      "webgl": "vec3 node_{{id}}(float x, float y) { return vec3(x, y, 0.0); }"
     }
   },
   {

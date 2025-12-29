@@ -20,16 +20,10 @@ export class InputFieldRenderer {
       return this.createColorInput(socket, node);
     }
     
-    // Handle vector types (vec2, vec3, vec4) - show multiple input fields
-    const vectorDimensions: Record<string, number> = {
-      'vec2': 2,
-      'vec3': 3,
-      'vec4': 4,
-    };
-    
-    const dimensions = vectorDimensions[socket.type];
-    if (dimensions) {
-      return this.createVectorInput(socket, node, dimensions);
+    // Handle vector types (vec3) - show multiple input fields
+    // vec2 is treated as vec3 (with z=0)
+    if (socket.type === 'vec3') {
+      return this.createVectorInput(socket, node, 3);
     }
     
     // Single float input

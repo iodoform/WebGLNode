@@ -143,9 +143,7 @@ export class ConnectionRenderer {
   private getSocketColor(type: SocketType): string {
     const colors: Record<SocketType, string> = {
       'float': '#a1a1a1',
-      'vec2': '#63c7ff',
       'vec3': '#6363ff',
-      'vec4': '#cc63ff',
       'color': '#ffcc00',
       'sampler': '#ff6b6b',
       'texture2d': '#4ecdc4',
