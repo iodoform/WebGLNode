@@ -1,5 +1,5 @@
-import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
-import type { NodeDefinition } from '../../types';
+import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
+import type { NodeDefinition } from '../types';
 
 /**
  * ノード追加メニューの管理を担当するクラス

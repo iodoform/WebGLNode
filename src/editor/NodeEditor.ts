@@ -11,7 +11,7 @@ import { NodeEditorService } from '../application/services/NodeEditorService';
 import { InMemoryNodeRepository } from '../infrastructure/repositories/InMemoryNodeRepository';
 import { InMemoryConnectionRepository } from '../infrastructure/repositories/InMemoryConnectionRepository';
 import { NodeGraph } from '../domain/entities/NodeGraph';
-import { nodeDefinitionLoader } from '../nodes/NodeDefinitionLoader';
+import { nodeDefinitionLoader } from '../infrastructure/node-definitions/loader/NodeDefinitionLoader';
 
 /**
  * タッチ操作の状態を管理するインターフェース

@@ -1,5 +1,5 @@
-import { IRenderer } from '../infrastructure/rendering/IRenderer';
-import { RendererType } from '../types';
+import { IRenderer } from '../IRenderer';
+import { RendererType } from '../../types';
 
 export class WebGPURenderer implements IRenderer {
   readonly rendererType: RendererType = 'webgpu';

@@ -2,7 +2,7 @@ import { Node } from '../../domain/entities/Node';
 import { Position } from '../../domain/value-objects/Position';
 import { NodeFactory } from '../../domain/services/NodeFactory';
 import { NodeGraph } from '../../domain/entities/NodeGraph';
-import type { NodeDefinition } from '../../types';
+import type { NodeDefinition } from '../../infrastructure/types';
 
 /**
  * ノード追加ユースケース

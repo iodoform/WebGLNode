@@ -9,7 +9,7 @@ import { AddNodeUseCase } from '../use-cases/AddNodeUseCase';
 import { CreateConnectionUseCase } from '../use-cases/CreateConnectionUseCase';
 import { DeleteNodeUseCase } from '../use-cases/DeleteNodeUseCase';
 import { DeleteConnectionUseCase } from '../use-cases/DeleteConnectionUseCase';
-import type { NodeDefinition } from '../../types';
+import type { NodeDefinition } from '../../infrastructure/types';
 
 /**
  * ノードエディターアプリケーションサービス

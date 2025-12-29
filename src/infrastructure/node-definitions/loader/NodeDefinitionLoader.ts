@@ -1,12 +1,12 @@
-import type { NodeDefinition } from '../types';
+import type { NodeDefinition } from '../../types';
 
 // Import JSON definitions
-import mathNodes from '../node-definitions/math.json';
-import vectorNodes from '../node-definitions/vector.json';
-import inputNodes from '../node-definitions/input.json';
-import colorNodes from '../node-definitions/color.json';
-import outputNodes from '../node-definitions/output.json';
-import patternNodes from '../node-definitions/pattern.json';
+import mathNodes from '../math.json';
+import vectorNodes from '../vector.json';
+import inputNodes from '../input.json';
+import colorNodes from '../color.json';
+import outputNodes from '../output.json';
+import patternNodes from '../pattern.json';
 
 export class NodeDefinitionLoader {
   private definitions: Map<string, NodeDefinition> = new Map();

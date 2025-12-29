@@ -1,9 +1,9 @@
 import { Node } from '../../domain/entities/Node';
 import { Connection } from '../../domain/entities/Connection';
 import { SocketType } from '../../domain/value-objects/SocketType';
-import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
+import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
 import { IShaderGenerator } from './IShaderGenerator';
-import { RendererType } from '../../types';
+import { RendererType } from '../types';
 
 /**
  * GLSLシェーダー生成器

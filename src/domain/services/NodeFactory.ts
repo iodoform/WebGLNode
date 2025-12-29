@@ -4,7 +4,7 @@ import { NodeId } from '../value-objects/Id';
 import { SocketId } from '../value-objects/Id';
 import { Position } from '../value-objects/Position';
 import type { SocketDirection } from '../value-objects/SocketType';
-import type { NodeDefinition, SocketDefinition } from '../../types';
+import type { NodeDefinition, SocketDefinition } from '../../infrastructure/types';
 
 /**
  * ノードファクトリサービス

@@ -1,6 +1,6 @@
 import { Node } from '../../domain/entities/Node';
 import { Connection } from '../../domain/entities/Connection';
-import { RendererType } from '../../types';
+import { RendererType } from '../types';
 
 /**
  * 抽象シェーダージェネレーターインターフェース

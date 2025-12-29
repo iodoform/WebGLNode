@@ -1,4 +1,4 @@
-import { RendererType } from '../../types';
+import { RendererType } from '../types';
 
 /**
  * 抽象レンダラーインターフェース

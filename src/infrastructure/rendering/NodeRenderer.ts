@@ -1,6 +1,6 @@
 import { Node } from '../../domain/entities/Node';
 import { Socket } from '../../domain/entities/Socket';
-import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
+import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
 import { InputFieldRenderer } from './InputFieldRenderer';
 
 /**

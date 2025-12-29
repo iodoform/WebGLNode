@@ -1,4 +1,4 @@
-import { RendererType } from '../../types';
+import { RendererType } from '../types';
 
 /**
  * レンダリング機能の検出
