@@ -1,7 +1,7 @@
 import { Node } from '../../domain/entities/Node';
-import { NodeEditorService } from '../services/NodeEditorService';
 import { ICommand } from './ICommand';
 import type { NodeDefinition } from '../../infrastructure/types';
+import { commandDIContainer } from '../../infrastructure/di/CommandDIContainer';
 
 /**
  * ノード追加コマンド
@@ -10,25 +10,36 @@ export class AddNodeCommand implements ICommand {
   public addedNode: Node | null = null;
 
   constructor(
-    private nodeEditorService: NodeEditorService,
     private definition: NodeDefinition,
     private x: number,
-    private y: number,
-    private onNodeAdded?: (node: Node) => void,
-    private onNodeRemoved?: (nodeId: string) => void
+    private y: number
   ) {}
 
   execute(): void {
-    this.addedNode = this.nodeEditorService.addNode(this.definition, this.x, this.y);
-    this.onNodeAdded?.(this.addedNode);
+    const deps = commandDIContainer.get();
+    this.addedNode = deps.nodeEditorService.addNode(this.definition, this.x, this.y);
+    
+    // DOM更新
+    deps.syncNodeCacheToState();
+    deps.nodeRenderer.renderNode(this.addedNode);
+    deps.triggerShaderUpdate();
   }
 
   undo(): void {
-    if (this.addedNode) {
-      this.nodeEditorService.deleteNode(this.addedNode.id.value);
-      this.onNodeRemoved?.(this.addedNode.id.value);
-      this.addedNode = null;
-    }
+    if (!this.addedNode) return;
+    
+    const deps = commandDIContainer.get();
+    deps.nodeEditorService.deleteNode(this.addedNode.id.value);
+    
+    // DOM更新
+    deps.syncNodeCacheToState();
+    const nodeEl = deps.nodeContainer.querySelector(`[data-node-id="${this.addedNode.id.value}"]`);
+    if (nodeEl) nodeEl.remove();
+    const connections = deps.nodeEditorService.getAllConnections();
+    deps.connectionRenderer.updateConnections(connections);
+    deps.triggerShaderUpdate();
+    
+    this.addedNode = null;
   }
 }
 

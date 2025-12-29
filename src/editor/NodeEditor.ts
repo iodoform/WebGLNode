@@ -1,7 +1,6 @@
 import type { EditorState, DragState, ConnectionDragState } from './types';
 import { Node } from '../domain/entities/Node';
 import { Socket } from '../domain/entities/Socket';
-import { Connection } from '../domain/entities/Connection';
 import { IShaderGenerator } from '../infrastructure/shader/IShaderGenerator';
 import { WGSLGenerator } from '../infrastructure/shader/WGSLGenerator';
 import { InputFieldRenderer } from '../infrastructure/rendering/InputFieldRenderer';
@@ -20,6 +19,7 @@ import { MoveNodeCommand } from '../application/commands/MoveNodeCommand';
 import { CreateConnectionCommand } from '../application/commands/CreateConnectionCommand';
 import { DeleteConnectionCommand } from '../application/commands/DeleteConnectionCommand';
 import { UpdateNodeValueCommand } from '../application/commands/UpdateNodeValueCommand';
+import { commandDIContainer } from '../infrastructure/di/CommandDIContainer';
 
 /**
  * タッチ操作の状態を管理するインターフェース
@@ -157,22 +157,8 @@ export class NodeEditor {
         const node = this.nodeEditorService.getNode(nodeId);
         const oldValue = node?.getValue(name);
         
-        const command = new UpdateNodeValueCommand(
-          this.nodeEditorService,
-          nodeId,
-          name,
-          oldValue,
-          value,
-          (updatedNodeId: string) => {
-            const updatedNode = this.nodeEditorService.getNode(updatedNodeId);
-            if (updatedNode) {
-              this.nodeRenderer.updateNodeInputFields(updatedNode);
-            }
-          }
-        );
-        
+        const command = new UpdateNodeValueCommand(nodeId, name, oldValue, value);
         this.commandHistory.execute(command);
-        this.triggerShaderUpdate();
       }
     );
 
@@ -201,6 +187,17 @@ export class NodeEditor {
       () => this.state.pan,
       () => this.state.zoom
     );
+
+    // Register command dependencies in DI container
+    commandDIContainer.register({
+      nodeEditorService: this.nodeEditorService,
+      nodeRenderer: this.nodeRenderer,
+      connectionRenderer: this.connectionRenderer,
+      isSocketConnected: (socketId: string) => this.isSocketConnected(socketId),
+      triggerShaderUpdate: () => this.triggerShaderUpdate(),
+      syncNodeCacheToState: () => this.syncNodeCacheToState(),
+      nodeContainer: this.nodeContainer,
+    });
 
     // イベントハンドラーの参照を初期化
     this.boundMouseMoveHandler = this.handleMouseMove.bind(this);
@@ -346,20 +343,11 @@ export class NodeEditor {
           // 位置が変更された場合のみコマンドとして記録
           if (this.nodeDragStartPosition.x !== newX || this.nodeDragStartPosition.y !== newY) {
             const command = new MoveNodeCommand(
-              this.nodeEditorService,
               this.dragState.nodeId,
               this.nodeDragStartPosition.x,
               this.nodeDragStartPosition.y,
               newX,
-              newY,
-              (nodeId: string) => {
-                const updatedNode = this.nodeEditorService.getNode(nodeId);
-                if (updatedNode) {
-                  this.nodeRenderer.updateNodePosition(updatedNode);
-                  const connections = this.nodeEditorService.getAllConnections();
-                  this.connectionRenderer.updateConnections(connections);
-                }
-              }
+              newY
             );
             this.commandHistory.execute(command);
           }
@@ -869,27 +857,9 @@ export class NodeEditor {
     const definition = nodeDefinitionLoader.getDefinition(definitionId);
     if (!definition) return null;
 
-    const command = new AddNodeCommand(
-      this.nodeEditorService,
-      definition,
-      x,
-      y,
-      (node: Node) => {
-        this.syncNodeCacheToState();
-        this.nodeRenderer.renderNode(node);
-        this.triggerShaderUpdate();
-      },
-      (nodeId: string) => {
-        this.syncNodeCacheToState();
-        const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeId}"]`);
-        if (nodeEl) nodeEl.remove();
-        const connections = this.nodeEditorService.getAllConnections();
-        this.connectionRenderer.updateConnections(connections);
-        this.triggerShaderUpdate();
-      }
-    );
-    
+    const command = new AddNodeCommand(definition, x, y);
     this.commandHistory.execute(command);
+    
     // コマンド実行後に追加されたノードを取得
     const allNodes = this.nodeEditorService.getAllNodes();
     const addedNode = allNodes.find(n => 
@@ -1023,30 +993,8 @@ export class NodeEditor {
 
   private createConnection(from: Socket, to: Socket): void {
     try {
-      const command = new CreateConnectionCommand(
-        this.nodeEditorService,
-        from.id.value,
-        to.id.value,
-        () => {
-          // 接続作成時の処理は特に不要（updateConnectionsで一括更新）
-        },
-        () => {
-          // 接続削除時の処理は特に不要（updateConnectionsで一括更新）
-        },
-        (connections: Connection[]) => {
-          this.connectionRenderer.updateConnections(connections);
-          this.nodeRenderer.updateSocketDisplay(from.id.value, this.isSocketConnected(from.id.value));
-          this.nodeRenderer.updateSocketDisplay(to.id.value, this.isSocketConnected(to.id.value));
-          
-          const toNode = this.nodeEditorService.getNode(to.nodeId.value);
-          if (toNode) {
-            this.nodeRenderer.updateNodeInputFields(toNode);
-          }
-        }
-      );
-      
+      const command = new CreateConnectionCommand(from.id.value, to.id.value);
       this.commandHistory.execute(command);
-      this.triggerShaderUpdate();
     } catch (error) {
       console.warn('Failed to create connection:', error);
     }
@@ -1080,36 +1028,8 @@ export class NodeEditor {
     if (!connection) return;
     
     try {
-      const command = new DeleteConnectionCommand(
-        this.nodeEditorService,
-        connectionId,
-        (_deletedConnectionId: string) => {
-          // 接続削除時の処理
-        },
-        (_createdConnection: Connection) => {
-          // 接続作成時の処理（undo時）
-        },
-        (updatedConnections: Connection[]) => {
-          this.connectionRenderer.updateConnections(updatedConnections);
-          this.nodeRenderer.updateSocketDisplay(
-            connection.fromSocketId.value,
-            this.isSocketConnected(connection.fromSocketId.value)
-          );
-          this.nodeRenderer.updateSocketDisplay(
-            connection.toSocketId.value,
-            this.isSocketConnected(connection.toSocketId.value)
-          );
-          
-          // Update input fields for the node that had the input connection
-          const toNode = this.nodeEditorService.getNode(connection.toNodeId.value);
-          if (toNode) {
-            this.nodeRenderer.updateNodeInputFields(toNode);
-          }
-        }
-      );
-      
+      const command = new DeleteConnectionCommand(connectionId);
       this.commandHistory.execute(command);
-      this.triggerShaderUpdate();
       
       if (this.selectedConnectionId === connectionId) {
         this.selectedConnectionId = null;
@@ -1143,55 +1063,7 @@ export class NodeEditor {
     });
 
     for (const nodeIdStr of nodesToDelete) {
-      const command = new DeleteNodeCommand(
-        this.nodeEditorService,
-        nodeIdStr,
-        (nodeId: string) => {
-          this.syncNodeCacheToState();
-          const nodeEl = this.nodeContainer.querySelector(`[data-node-id="${nodeId}"]`);
-          if (nodeEl) nodeEl.remove();
-        },
-        (node: Node) => {
-          this.syncNodeCacheToState();
-          this.nodeRenderer.renderNode(node);
-          // 接続先ノードの表示を更新
-          const allConnections = this.nodeEditorService.getAllConnections();
-          for (const conn of allConnections) {
-            if (conn.toNodeId.value === node.id.value) {
-              const toNode = this.nodeEditorService.getNode(conn.toNodeId.value);
-              if (toNode) {
-                this.nodeRenderer.updateNodeInputFields(toNode);
-                for (const inputSocket of toNode.inputs) {
-                  this.nodeRenderer.updateSocketDisplay(
-                    inputSocket.id.value,
-                    this.isSocketConnected(inputSocket.id.value)
-                  );
-                }
-              }
-            }
-          }
-        },
-        (connections: Connection[]) => {
-          this.connectionRenderer.updateConnections(connections);
-          // 接続先ノードの表示を更新
-          const affectedNodeIds = new Set<string>();
-          for (const conn of connections) {
-            affectedNodeIds.add(conn.toNodeId.value);
-          }
-          for (const nodeId of affectedNodeIds) {
-            const node = this.nodeEditorService.getNode(nodeId);
-            if (node) {
-              this.nodeRenderer.updateNodeInputFields(node);
-              for (const inputSocket of node.inputs) {
-                this.nodeRenderer.updateSocketDisplay(
-                  inputSocket.id.value,
-                  this.isSocketConnected(inputSocket.id.value)
-                );
-              }
-            }
-          }
-        }
-      );
+      const command = new DeleteNodeCommand(nodeIdStr);
       this.commandHistory.execute(command);
     }
 

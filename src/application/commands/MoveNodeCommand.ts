@@ -1,30 +1,44 @@
-import { NodeEditorService } from '../services/NodeEditorService';
 import { ICommand } from './ICommand';
+import { commandDIContainer } from '../../infrastructure/di/CommandDIContainer';
 
 /**
  * ノード移動コマンド
  */
 export class MoveNodeCommand implements ICommand {
   constructor(
-    private nodeEditorService: NodeEditorService,
     private nodeId: string,
     private oldX: number,
     private oldY: number,
     private newX: number,
-    private newY: number,
-    private onNodeMoved?: (nodeId: string) => void
+    private newY: number
   ) {}
 
   execute(): void {
-    this.nodeEditorService.moveNodeAndGetUpdated(this.nodeId, this.newX, this.newY);
-    this.nodeEditorService.saveNode(this.nodeId);
-    this.onNodeMoved?.(this.nodeId);
+    const deps = commandDIContainer.get();
+    deps.nodeEditorService.moveNodeAndGetUpdated(this.nodeId, this.newX, this.newY);
+    deps.nodeEditorService.saveNode(this.nodeId);
+    
+    // DOM更新
+    const updatedNode = deps.nodeEditorService.getNode(this.nodeId);
+    if (updatedNode) {
+      deps.nodeRenderer.updateNodePosition(updatedNode);
+      const connections = deps.nodeEditorService.getAllConnections();
+      deps.connectionRenderer.updateConnections(connections);
+    }
   }
 
   undo(): void {
-    this.nodeEditorService.moveNodeAndGetUpdated(this.nodeId, this.oldX, this.oldY);
-    this.nodeEditorService.saveNode(this.nodeId);
-    this.onNodeMoved?.(this.nodeId);
+    const deps = commandDIContainer.get();
+    deps.nodeEditorService.moveNodeAndGetUpdated(this.nodeId, this.oldX, this.oldY);
+    deps.nodeEditorService.saveNode(this.nodeId);
+    
+    // DOM更新
+    const updatedNode = deps.nodeEditorService.getNode(this.nodeId);
+    if (updatedNode) {
+      deps.nodeRenderer.updateNodePosition(updatedNode);
+      const connections = deps.nodeEditorService.getAllConnections();
+      deps.connectionRenderer.updateConnections(connections);
+    }
   }
 }
 
