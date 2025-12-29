@@ -916,10 +916,30 @@ export class NodeEditor {
   }
 
   private deleteSelectedNodes(): void {
+    // 削除前に、削除される接続の接続先ノードIDを収集
+    const affectedNodeIds = new Set<string>();
+    
     for (const nodeIdStr of this.state.selectedNodes) {
       // Don't delete output node
       const node = this.nodeEditorService.getNode(nodeIdStr);
       if (node?.definitionId === 'output_color') continue;
+
+      // 削除前に、このノードに関連する接続の接続先ノードIDを収集
+      const connections = this.nodeEditorService.getAllConnections();
+      const relatedConnections = connections.filter(conn => 
+        conn.fromNodeId.value === nodeIdStr || conn.toNodeId.value === nodeIdStr
+      );
+      
+      // 接続先ノードIDを収集（削除されるノード自身は除外）
+      for (const conn of relatedConnections) {
+        if (conn.toNodeId.value !== nodeIdStr) {
+          affectedNodeIds.add(conn.toNodeId.value);
+        }
+        if (conn.fromNodeId.value !== nodeIdStr) {
+          // 出力側のノードも更新が必要な場合がある（将来的な拡張用）
+          // 現時点では入力側のみ更新
+        }
+      }
 
       try {
         // Use domain service to delete node
@@ -933,6 +953,23 @@ export class NodeEditor {
         if (nodeEl) nodeEl.remove();
       } catch (error) {
         console.warn('Failed to delete node:', error);
+      }
+    }
+
+    // 削除された接続の接続先ノードの表示を更新
+    for (const affectedNodeId of affectedNodeIds) {
+      const affectedNode = this.nodeEditorService.getNode(affectedNodeId);
+      if (affectedNode) {
+        // 入力フィールドを更新（接続が削除されたので入力フィールドを表示）
+        this.nodeRenderer.updateNodeInputFields(affectedNode);
+        
+        // ソケットの表示を更新
+        for (const inputSocket of affectedNode.inputs) {
+          this.nodeRenderer.updateSocketDisplay(
+            inputSocket.id.value,
+            this.isSocketConnected(inputSocket.id.value)
+          );
+        }
       }
     }
 
