@@ -208,6 +208,17 @@ export class NodeEditorService {
   }
 
   /**
+   * ソケットが接続されているか判定
+   */
+  isSocketConnected(socketIdStr: string): boolean {
+    const connections = this.getAllConnections();
+    return connections.some(conn => 
+      conn.fromSocketId.value === socketIdStr || 
+      conn.toSocketId.value === socketIdStr
+    );
+  }
+
+  /**
    * ノードの状態をシリアライズ
    */
   serializeNode(node: Node): SerializedNode {

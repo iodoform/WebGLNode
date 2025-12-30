@@ -1,6 +1,7 @@
 import { Connection } from '../../domain/entities/Connection';
 import { Node } from '../../domain/entities/Node';
 import { SocketType } from '../../domain/value-objects/SocketType';
+import { IConnectionRenderer } from './IConnectionRenderer';
 
 /**
  * 接続線のレンダリングを担当するクラス
@@ -8,7 +9,7 @@ import { SocketType } from '../../domain/value-objects/SocketType';
  * ノード間の接続をSVGパスとして描画し、接続の選択状態やプレビュー表示を管理します。
  * 接続のクリックや削除などの操作も処理します。
  */
-export class ConnectionRenderer {
+export class ConnectionRenderer implements IConnectionRenderer {
   constructor(
     private svgContainer: SVGSVGElement,
     private nodeContainer: HTMLElement,

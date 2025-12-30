@@ -1,5 +1,6 @@
 import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
 import type { NodeDefinition } from '../types';
+import { IMenuManager } from './IMenuManager';
 
 /**
  * ノード追加メニューの管理を担当するクラス
@@ -7,7 +8,7 @@ import type { NodeDefinition } from '../types';
  * 右クリックやショートカットキーで表示されるノード追加メニューの表示・非表示を管理し、
  * ノードの検索機能やカテゴリ別の表示を行います。
  */
-export class MenuManager {
+export class MenuManager implements IMenuManager {
   private menu: HTMLElement | null = null;
 
   constructor(

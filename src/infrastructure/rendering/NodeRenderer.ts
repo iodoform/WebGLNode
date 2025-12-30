@@ -2,6 +2,7 @@ import { Node } from '../../domain/entities/Node';
 import { Socket } from '../../domain/entities/Socket';
 import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
 import { InputFieldRenderer } from './InputFieldRenderer';
+import { INodeRenderer } from './INodeRenderer';
 
 /**
  * ノードのDOMレンダリングを担当するクラス
@@ -9,7 +10,7 @@ import { InputFieldRenderer } from './InputFieldRenderer';
  * ノードのHTML要素の作成、更新、削除を管理します。ノードのヘッダー、ソケット、入力フィールドなどを
  * 適切に配置し、ノードの選択状態や位置の更新を行います。
  */
-export class NodeRenderer {
+export class NodeRenderer implements INodeRenderer {
   constructor(
     private nodeContainer: HTMLElement,
     private inputFieldRenderer: InputFieldRenderer,
