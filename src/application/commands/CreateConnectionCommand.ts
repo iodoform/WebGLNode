@@ -1,13 +1,14 @@
 import { Connection } from '../../domain/entities/Connection';
 import { ICommand } from './ICommand';
+import { SerializedConnection } from '../../domain/services/NodeSerializer';
 import { commandDIContainer } from '../../infrastructure/di/CommandDIContainer';
 
 /**
  * 接続作成コマンド
  */
 export class CreateConnectionCommand implements ICommand {
-  private createdConnection: Connection | null = null;
-  private deletedConnections: Connection[] = [];
+  private serializedCreatedConnection: SerializedConnection | null = null;
+  private serializedDeletedConnections: SerializedConnection[] = [];
 
   constructor(
     private fromSocketId: string,
@@ -21,12 +22,15 @@ export class CreateConnectionCommand implements ICommand {
     const toSocketConnections = deps.nodeEditorService.getAllConnections().filter((conn: Connection) =>
       conn.toSocketId.value === this.toSocketId
     );
-    this.deletedConnections = [...toSocketConnections];
+    this.serializedDeletedConnections = toSocketConnections.map(conn =>
+      deps.nodeEditorService.serializeConnection(conn)
+    );
 
-    this.createdConnection = deps.nodeEditorService.createConnection(
+    const createdConnection = deps.nodeEditorService.createConnection(
       this.fromSocketId,
       this.toSocketId
     );
+    this.serializedCreatedConnection = deps.nodeEditorService.serializeConnection(createdConnection);
     
     // DOM更新
     const updatedConnections = deps.nodeEditorService.getAllConnections();
@@ -48,20 +52,17 @@ export class CreateConnectionCommand implements ICommand {
   }
 
   undo(): void {
-    if (!this.createdConnection) return;
+    if (!this.serializedCreatedConnection) return;
 
     const deps = commandDIContainer.get();
 
     // 作成した接続を削除
-    deps.nodeEditorService.deleteConnection(this.createdConnection.id.value);
+    deps.nodeEditorService.deleteConnection(this.serializedCreatedConnection.id);
 
-    // 削除されていた接続を復元
-    for (const conn of this.deletedConnections) {
+    // 削除されていた接続を復元（同じIDで作成）
+    for (const serializedConn of this.serializedDeletedConnections) {
       try {
-        deps.nodeEditorService.createConnection(
-          conn.fromSocketId.value,
-          conn.toSocketId.value
-        );
+        deps.nodeEditorService.restoreConnection(serializedConn);
       } catch (error) {
         console.warn('Failed to restore connection:', error);
       }

@@ -14,7 +14,7 @@ import { NodeGraph } from '../domain/entities/NodeGraph';
 import { nodeDefinitionLoader } from '../infrastructure/node-definitions/loader/NodeDefinitionLoader';
 import { CommandHistory } from '../application/commands/CommandHistory';
 import { AddNodeCommand } from '../application/commands/AddNodeCommand';
-import { DeleteNodeCommand } from '../application/commands/DeleteNodeCommand';
+import { DeleteNodeWithConnectionsCommand } from '../application/commands/DeleteNodeWithConnectionsCommand';
 import { MoveNodeCommand } from '../application/commands/MoveNodeCommand';
 import { CreateConnectionCommand } from '../application/commands/CreateConnectionCommand';
 import { DeleteConnectionCommand } from '../application/commands/DeleteConnectionCommand';
@@ -1063,7 +1063,7 @@ export class NodeEditor {
     });
 
     for (const nodeIdStr of nodesToDelete) {
-      const command = new DeleteNodeCommand(nodeIdStr);
+      const command = new DeleteNodeWithConnectionsCommand(nodeIdStr);
       this.commandHistory.execute(command);
     }
 

@@ -9,6 +9,7 @@ import { AddNodeUseCase } from '../use-cases/AddNodeUseCase';
 import { CreateConnectionUseCase } from '../use-cases/CreateConnectionUseCase';
 import { DeleteNodeUseCase } from '../use-cases/DeleteNodeUseCase';
 import { DeleteConnectionUseCase } from '../use-cases/DeleteConnectionUseCase';
+import { NodeSerializer, SerializedNode, SerializedConnection } from '../../domain/services/NodeSerializer';
 import type { NodeDefinition } from '../../infrastructure/types';
 
 /**
@@ -204,6 +205,52 @@ export class NodeEditorService {
     
     const connections = this.nodeGraph.getAllConnections();
     return connections.find(c => c.id.equals(connectionId));
+  }
+
+  /**
+   * ノードの状態をシリアライズ
+   */
+  serializeNode(node: Node): SerializedNode {
+    return NodeSerializer.serialize(node);
+  }
+
+  /**
+   * シリアライズされたノードを復元（同じIDで作成）
+   */
+  restoreNode(serialized: SerializedNode): Node {
+    // シリアライズ形式からノードを復元
+    const node = NodeSerializer.deserialize(serialized);
+    
+    // NodeGraphに追加
+    this.nodeGraph.addNode(node);
+    
+    // 永続化
+    this.nodeRepository.save(node);
+    
+    return node;
+  }
+
+  /**
+   * 接続の状態をシリアライズ
+   */
+  serializeConnection(connection: Connection): SerializedConnection {
+    return NodeSerializer.serializeConnection(connection);
+  }
+
+  /**
+   * シリアライズされた接続を復元（同じIDで作成）
+   */
+  restoreConnection(serialized: SerializedConnection): Connection {
+    // シリアライズ形式から接続を復元
+    const connection = NodeSerializer.deserializeConnection(serialized);
+    
+    // NodeGraphに追加
+    this.nodeGraph.addConnection(connection);
+    
+    // 永続化
+    this.connectionRepository.save(connection);
+    
+    return connection;
   }
 }
 
