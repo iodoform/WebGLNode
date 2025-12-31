@@ -1,7 +1,8 @@
 import { Node } from '../../domain/entities/Node';
 import { Socket } from '../../domain/entities/Socket';
-import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
+import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
 import { InputFieldRenderer } from './InputFieldRenderer';
+import { INodeRenderer } from './INodeRenderer';
 
 /**
  * ノードのDOMレンダリングを担当するクラス
@@ -9,7 +10,7 @@ import { InputFieldRenderer } from './InputFieldRenderer';
  * ノードのHTML要素の作成、更新、削除を管理します。ノードのヘッダー、ソケット、入力フィールドなどを
  * 適切に配置し、ノードの選択状態や位置の更新を行います。
  */
-export class NodeRenderer {
+export class NodeRenderer implements INodeRenderer {
   constructor(
     private nodeContainer: HTMLElement,
     private inputFieldRenderer: InputFieldRenderer,
@@ -109,6 +110,20 @@ export class NodeRenderer {
     }
 
     nodeEl.appendChild(content);
+
+    // Drag handling on entire node (except sockets and input fields)
+    nodeEl.addEventListener('mousedown', (e) => {
+      // Don't start drag if clicking on socket, input field, or color picker
+      const target = e.target as HTMLElement;
+      if (target.closest('.socket') || 
+          target.closest('.node-input-field') || 
+          target.closest('.node-vector-input-field') ||
+          target.closest('.node-color-picker') ||
+          target.closest('.node-large-color-picker')) {
+        return;
+      }
+      this.onNodeDragStart(node, e);
+    });
 
     // Selection handling
     nodeEl.addEventListener('click', (e) => {

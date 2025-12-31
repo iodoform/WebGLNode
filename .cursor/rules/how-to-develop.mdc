@@ -1,0 +1,58 @@
+---
+description: "This rule provides how to proceed development"
+alwaysApply: true
+---
+1. このプロジェクトはDDDに基づいて設計しているため，開発を行う際はその設計思想に基づき，必要に応じて無理のない範囲で値オブジェクト・エンティティ・ドメインサービス・アプリケーションサービス・リポジトリなどを作成してください．
+2. 開発を進める際の指針として`DDD_ARCHITECTURE.md`を参考にしてください．
+3. 開発時に交わした会話をドキュメントに残すことは大切ですが，後で見返したときにその時の会話の文脈を踏まえないと理解できないコメントなどをコードに残さないでください．  
+  例：  
+  以下のコードは悪い例です．  
+  DDDでのエンティティはイミュータブルであるという誤った前提のもとに設計を進めていたため，それを修正したときのコードです．  
+  あとから見返した際に，この修正がエンティティの扱い方を誤っていたことに由来するという文脈は読み手にはわからないので，`エンティティは可変なので`などの文章は唐突かつ冗長に見えます．  
+  このような記述は避け，コメントはそのコードを記述している際の明文化されていない文脈の知識を必要とせず，コードが何をしているのかについて記述するようにしてください．
+    ```js
+    /**
+   * ノードの位置を更新
+   * 
+   * エンティティは可変なので、同じインスタンスの位置を変更します。
+   * リポジトリに保存後、更新されたノードエンティティを返します。
+   * 
+   * @param nodeId 移動するノードのID
+   * @param position 新しい位置
+   * @returns 更新されたノードエンティティ（キャッシュ更新用）
+   */
+    moveNodeAndGetUpdated(nodeId: NodeId, position: Position): Node {
+      const node = this.nodeRepository.findById(nodeId);
+      if (!node) {
+        throw new Error('Node not found');
+      }
+      // エンティティは可変なので、同じインスタンスを変更
+      node.moveTo(position);
+      this.nodeRepository.save(node);
+      return node;
+    }
+    ```
+
+    改善例:
+
+    ```js
+    /**
+   * ノードの位置を更新
+   * 
+   * リポジトリに保存後、更新されたノードエンティティを返します。
+   * 
+   * @param nodeId 移動するノードのID
+   * @param position 新しい位置
+   * @returns 更新されたノードエンティティ（キャッシュ更新用）
+   */
+    moveNodeAndGetUpdated(nodeId: NodeId, position: Position): Node {
+      const node = this.nodeRepository.findById(nodeId);
+      if (!node) {
+        throw new Error('Node not found');
+      }
+      // エンティティを移動してリポジトリに登録
+      node.moveTo(position);
+      this.nodeRepository.save(node);
+      return node;
+    }
+    ```

@@ -1,0 +1,201 @@
+[
+  {
+    "id": "vec_combine3",
+    "name": "Combine XYZ",
+    "category": "Vector",
+    "description": "Combine three floats into a vec3",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "X", "type": "float", "default": 0 },
+      { "name": "Y", "type": "float", "default": 0 },
+      { "name": "Z", "type": "float", "default": 0 }
+    ],
+    "outputs": [
+      { "name": "Vector", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(x: f32, y: f32, z: f32) -> vec3f { return vec3f(x, y, z); }",
+      "webgl": "vec3 node_{{id}}(float x, float y, float z) { return vec3(x, y, z); }"
+    }
+  },
+  {
+    "id": "vec_separate3",
+    "name": "Separate XYZ",
+    "category": "Vector",
+    "description": "Separate a vec3 into components",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec3", "default": [0, 0, 0] }
+    ],
+    "outputs": [
+      { "name": "X", "type": "float" },
+      { "name": "Y", "type": "float" },
+      { "name": "Z", "type": "float" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}_x(v: vec3f) -> f32 { return v.x; }\nfn node_{{id}}_y(v: vec3f) -> f32 { return v.y; }\nfn node_{{id}}_z(v: vec3f) -> f32 { return v.z; }",
+      "webgl": "float node_{{id}}_x(vec3 v) { return v.x; }\nfloat node_{{id}}_y(vec3 v) { return v.y; }\nfloat node_{{id}}_z(vec3 v) { return v.z; }"
+    }
+  },
+  {
+    "id": "vec_length",
+    "name": "Length",
+    "category": "Vector",
+    "description": "Length of a vector",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec3", "default": [0, 0, 0] }
+    ],
+    "outputs": [
+      { "name": "Length", "type": "float" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec3f) -> f32 { return length(v); }",
+      "webgl": "float node_{{id}}(vec3 v) { return length(v); }"
+    }
+  },
+  {
+    "id": "vec_normalize",
+    "name": "Normalize",
+    "category": "Vector",
+    "description": "Normalize a vector",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec3", "default": [1, 0, 0] }
+    ],
+    "outputs": [
+      { "name": "Normalized", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec3f) -> vec3f { return normalize(v); }",
+      "webgl": "vec3 node_{{id}}(vec3 v) { return normalize(v); }"
+    }
+  },
+  {
+    "id": "vec_dot",
+    "name": "Dot Product",
+    "category": "Vector",
+    "description": "Dot product of two vectors",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "A", "type": "vec3", "default": [1, 0, 0] },
+      { "name": "B", "type": "vec3", "default": [0, 1, 0] }
+    ],
+    "outputs": [
+      { "name": "Dot", "type": "float" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec3f, b: vec3f) -> f32 { return dot(a, b); }",
+      "webgl": "float node_{{id}}(vec3 a, vec3 b) { return dot(a, b); }"
+    }
+  },
+  {
+    "id": "vec_distance",
+    "name": "Distance",
+    "category": "Vector",
+    "description": "Distance between two points",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "A", "type": "vec3", "default": [0, 0, 0] },
+      { "name": "B", "type": "vec3", "default": [1, 1, 0] }
+    ],
+    "outputs": [
+      { "name": "Distance", "type": "float" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec3f, b: vec3f) -> f32 { return distance(a, b); }",
+      "webgl": "float node_{{id}}(vec3 a, vec3 b) { return distance(a, b); }"
+    }
+  },
+  {
+    "id": "vec_reflect",
+    "name": "Reflect",
+    "category": "Vector",
+    "description": "Reflect vector around normal",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec3", "default": [1, -1, 0] },
+      { "name": "Normal", "type": "vec3", "default": [0, 1, 0] }
+    ],
+    "outputs": [
+      { "name": "Reflected", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec3f, n: vec3f) -> vec3f { return reflect(v, normalize(n)); }",
+      "webgl": "vec3 node_{{id}}(vec3 v, vec3 n) { return reflect(v, normalize(n)); }"
+    }
+  },
+  {
+    "id": "vec_add",
+    "name": "Add Vectors",
+    "category": "Vector",
+    "description": "Add two vec3 vectors",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "A", "type": "vec3", "default": [0, 0, 0] },
+      { "name": "B", "type": "vec3", "default": [0, 0, 0] }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec3f, b: vec3f) -> vec3f { return a + b; }",
+      "webgl": "vec3 node_{{id}}(vec3 a, vec3 b) { return a + b; }"
+    }
+  },
+  {
+    "id": "vec_multiply",
+    "name": "Multiply Vectors",
+    "category": "Vector",
+    "description": "Multiply two vec3 vectors",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "A", "type": "vec3", "default": [1, 1, 1] },
+      { "name": "B", "type": "vec3", "default": [1, 1, 1] }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec3f, b: vec3f) -> vec3f { return a * b; }",
+      "webgl": "vec3 node_{{id}}(vec3 a, vec3 b) { return a * b; }"
+    }
+  },
+  {
+    "id": "vec_scale",
+    "name": "Scale Vector",
+    "category": "Vector",
+    "description": "Scale a vector by a scalar",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "Vector", "type": "vec3", "default": [1, 1, 1] },
+      { "name": "Scale", "type": "float", "default": 1 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(v: vec3f, s: f32) -> vec3f { return v * s; }",
+      "webgl": "vec3 node_{{id}}(vec3 v, float s) { return v * s; }"
+    }
+  },
+  {
+    "id": "vec_mix",
+    "name": "Mix Vectors",
+    "category": "Vector",
+    "description": "Linear interpolation between two vectors",
+    "color": "#6363ff",
+    "inputs": [
+      { "name": "A", "type": "vec3", "default": [0, 0, 0] },
+      { "name": "B", "type": "vec3", "default": [1, 1, 1] },
+      { "name": "Factor", "type": "float", "default": 0.5 }
+    ],
+    "outputs": [
+      { "name": "Result", "type": "vec3" }
+    ],
+    "code": {
+      "webgpu": "fn node_{{id}}(a: vec3f, b: vec3f, t: f32) -> vec3f { return mix(a, b, t); }",
+      "webgl": "vec3 node_{{id}}(vec3 a, vec3 b, float t) { return mix(a, b, t); }"
+    }
+  }
+]

@@ -12,7 +12,7 @@ export class Node {
   constructor(
     public readonly id: NodeId,
     public readonly definitionId: string,
-    public readonly position: Position,
+    private _position: Position, // エンティティは可変なので、readonlyを外す
     public readonly inputs: Socket[],
     public readonly outputs: Socket[],
     private _values: Record<string, number | number[]>
@@ -20,6 +20,13 @@ export class Node {
     if (!definitionId || definitionId.trim() === '') {
       throw new Error('Node definitionId cannot be empty');
     }
+  }
+
+  /**
+   * ノードの位置を取得
+   */
+  get position(): Position {
+    return this._position;
   }
 
   /**
@@ -44,17 +51,10 @@ export class Node {
   }
 
   /**
-   * ノードの位置を更新（新しいインスタンスを返す）
+   * ノードの位置を更新
    */
-  moveTo(position: Position): Node {
-    return new Node(
-      this.id,
-      this.definitionId,
-      position,
-      this.inputs,
-      this.outputs,
-      { ...this._values }
-    );
+  moveTo(position: Position): void {
+    this._position = position;
   }
 
   /**

@@ -1,12 +1,12 @@
 import { NodeEditor } from './editor/NodeEditor';
-import { WebGPURenderer } from './webgpu/WebGPURenderer';
-import { WebGLRenderer } from './webgl/WebGLRenderer';
+import { WebGPURenderer } from './infrastructure/rendering/webgpu/WebGPURenderer';
+import { WebGLRenderer } from './infrastructure/rendering/webgl/WebGLRenderer';
 import { WGSLGenerator } from './infrastructure/shader/WGSLGenerator';
 import { GLSLGenerator } from './infrastructure/shader/GLSLGenerator';
 import { RendererCapability } from './infrastructure/rendering/RendererCapability';
 import { IRenderer } from './infrastructure/rendering/IRenderer';
 import { IShaderGenerator } from './infrastructure/shader/IShaderGenerator';
-import { RendererType } from './types';
+import { RendererType } from './infrastructure/types';
 import './styles/main.css';
 
 class App {

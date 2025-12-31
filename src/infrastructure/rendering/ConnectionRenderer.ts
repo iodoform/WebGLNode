@@ -1,6 +1,7 @@
 import { Connection } from '../../domain/entities/Connection';
 import { Node } from '../../domain/entities/Node';
 import { SocketType } from '../../domain/value-objects/SocketType';
+import { IConnectionRenderer } from './IConnectionRenderer';
 
 /**
  * 接続線のレンダリングを担当するクラス
@@ -8,11 +9,12 @@ import { SocketType } from '../../domain/value-objects/SocketType';
  * ノード間の接続をSVGパスとして描画し、接続の選択状態やプレビュー表示を管理します。
  * 接続のクリックや削除などの操作も処理します。
  */
-export class ConnectionRenderer {
+export class ConnectionRenderer implements IConnectionRenderer {
   constructor(
     private svgContainer: SVGSVGElement,
     private nodeContainer: HTMLElement,
-    private nodes: Map<string, Node>,
+    private getNode: (nodeId: string) => Node | undefined,
+    private getAllNodes: () => Node[],
     private getZoom: () => number,
     private onConnectionClick: (connectionId: string) => void,
     private onConnectionDelete: (connectionId: string) => void
@@ -46,7 +48,7 @@ export class ConnectionRenderer {
     path.setAttribute('data-connection-id', connection.id.value);
     
     // Color based on socket type
-    const fromNode = this.nodes.get(connection.fromNodeId.value);
+    const fromNode = this.getNode(connection.fromNodeId.value);
     const fromSocket = fromNode?.outputs.find(s => s.id.equals(connection.fromSocketId));
     const color = this.getSocketColor(fromSocket?.type || 'float');
     path.style.stroke = color;
@@ -114,7 +116,7 @@ export class ConnectionRenderer {
     path.setAttribute('d', `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`);
     path.classList.add('connection', 'connection-preview');
     
-    const fromNode = Array.from(this.nodes.values()).find(n => 
+    const fromNode = this.getAllNodes().find(n => 
       n.outputs.some(s => s.id.value === fromSocketId) || n.inputs.some(s => s.id.value === fromSocketId)
     );
     const fromSocket = fromNode?.outputs.find(s => s.id.value === fromSocketId) || 
@@ -142,9 +144,7 @@ export class ConnectionRenderer {
   private getSocketColor(type: SocketType): string {
     const colors: Record<SocketType, string> = {
       'float': '#a1a1a1',
-      'vec2': '#63c7ff',
       'vec3': '#6363ff',
-      'vec4': '#cc63ff',
       'color': '#ffcc00',
       'sampler': '#ff6b6b',
       'texture2d': '#4ecdc4',

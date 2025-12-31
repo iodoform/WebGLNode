@@ -1,5 +1,5 @@
 // Socket types for WGSL (used in JSON definitions)
-export type SocketType = 'float' | 'vec2' | 'vec3' | 'vec4' | 'color' | 'sampler' | 'texture2d';
+export type SocketType = 'float' | 'vec3' | 'color' | 'sampler' | 'texture2d';
 
 // Socket direction (used in JSON definitions)
 export type SocketDirection = 'input' | 'output';

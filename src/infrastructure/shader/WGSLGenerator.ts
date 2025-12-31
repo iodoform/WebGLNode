@@ -1,9 +1,9 @@
 import { Node } from '../../domain/entities/Node';
 import { Connection } from '../../domain/entities/Connection';
 import { SocketType } from '../../domain/value-objects/SocketType';
-import { nodeDefinitionLoader } from '../../nodes/NodeDefinitionLoader';
+import { nodeDefinitionLoader } from '../node-definitions/loader/NodeDefinitionLoader';
 import { IShaderGenerator } from './IShaderGenerator';
-import { RendererType } from '../../types';
+import { RendererType } from '../types';
 
 /**
  * WGSLシェーダー生成器
@@ -27,9 +27,7 @@ export class WGSLGenerator implements IShaderGenerator {
   private typeToWGSL(type: SocketType): string {
     switch (type) {
       case 'float': return 'f32';
-      case 'vec2': return 'vec2f';
       case 'vec3': return 'vec3f';
-      case 'vec4': return 'vec4f';
       case 'color': return 'vec3f';
       default: return 'f32';
     }
@@ -39,20 +37,22 @@ export class WGSLGenerator implements IShaderGenerator {
     if (value !== undefined) {
       if (Array.isArray(value)) {
         switch (type) {
-          case 'vec2': return `vec2f(${value[0] ?? 0}, ${value[1] ?? 0})`;
           case 'vec3': 
-          case 'color': return `vec3f(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0})`;
-          case 'vec4': return `vec4f(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0}, ${value[3] ?? 1})`;
+          case 'color': {
+            // If array has 2 elements, treat as vec2 and convert to vec3 (z=0)
+            if (value.length === 2) {
+              return `vec3f(${value[0] ?? 0}, ${value[1] ?? 0}, 0.0)`;
+            }
+            return `vec3f(${value[0] ?? 0}, ${value[1] ?? 0}, ${value[2] ?? 0})`;
+          }
           default: return String(value[0] ?? 0);
         }
       }
       return String(value);
     }
     switch (type) {
-      case 'vec2': return 'vec2f(0.0, 0.0)';
       case 'vec3':
       case 'color': return 'vec3f(0.0, 0.0, 0.0)';
-      case 'vec4': return 'vec4f(0.0, 0.0, 0.0, 1.0)';
       default: return '0.0';
     }
   }

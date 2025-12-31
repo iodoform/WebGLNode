@@ -10,7 +10,8 @@ src/
 │   ├── entities/              # エンティティ
 │   │   ├── Node.ts           # ノードエンティティ
 │   │   ├── Socket.ts         # ソケットエンティティ
-│   │   └── Connection.ts     # 接続エンティティ
+│   │   ├── Connection.ts     # 接続エンティティ
+│   │   └── NodeGraph.ts      # ノードグラフエンティティ
 │   ├── value-objects/         # 値オブジェクト
 │   │   ├── SocketType.ts     # ソケット型
 │   │   ├── Position.ts       # 位置情報
@@ -18,8 +19,9 @@ src/
 │   ├── repositories/          # リポジトリインターフェース
 │   │   ├── INodeRepository.ts
 │   │   └── IConnectionRepository.ts
-│   └── services/              # ドメインサービス
-│       └── NodeFactory.ts    # ノードファクトリ
+│   ├── services/              # ドメインサービス
+│   │   └── NodeFactory.ts    # ノードファクトリ
+│   └── index.ts               # ドメイン層のエクスポート
 │
 ├── application/               # アプリケーション層（ユースケース）
 │   ├── use-cases/             # ユースケース
@@ -27,30 +29,50 @@ src/
 │   │   ├── CreateConnectionUseCase.ts
 │   │   ├── DeleteNodeUseCase.ts
 │   │   └── DeleteConnectionUseCase.ts
-│   └── services/              # アプリケーションサービス
-│       └── NodeEditorService.ts
+│   ├── services/              # アプリケーションサービス
+│   │   └── NodeEditorService.ts
+│   └── index.ts               # アプリケーション層のエクスポート
 │
 ├── infrastructure/            # インフラストラクチャ層（実装詳細）
 │   ├── repositories/          # リポジトリ実装
 │   │   ├── InMemoryNodeRepository.ts
 │   │   └── InMemoryConnectionRepository.ts
 │   ├── rendering/            # レンダリング（UI実装）
+│   │   ├── webgl/           # WebGL実装
+│   │   │   └── WebGLRenderer.ts
+│   │   ├── webgpu/          # WebGPU実装
+│   │   │   └── WebGPURenderer.ts
+│   │   ├── IRenderer.ts      # レンダラーインターフェース
+│   │   ├── RendererCapability.ts # レンダラー機能定義
 │   │   ├── InputFieldRenderer.ts
 │   │   ├── NodeRenderer.ts
 │   │   ├── ConnectionRenderer.ts
 │   │   └── MenuManager.ts
-│   └── shader/               # シェーダー生成
-│       └── WGSLGenerator.ts
+│   ├── shader/               # シェーダー生成
+│   │   ├── IShaderGenerator.ts # シェーダー生成インターフェース
+│   │   ├── WGSLGenerator.ts  # WGSLシェーダー生成
+│   │   └── GLSLGenerator.ts  # GLSLシェーダー生成
+│   ├── node-definitions/     # ノード定義
+│   │   ├── loader/          # ノード定義ローダー
+│   │   │   └── NodeDefinitionLoader.ts
+│   │   ├── color.json       # ノード定義ファイル（JSON）
+│   │   ├── input.json
+│   │   ├── math.json
+│   │   ├── output.json
+│   │   ├── pattern.json
+│   │   └── vector.json
+│   ├── types/               # 型定義（設定データ）
+│   │   └── index.ts         # NodeDefinition, SocketDefinition等
+│   └── index.ts              # インフラストラクチャ層のエクスポート
 │
 ├── editor/                    # プレゼンテーション層（UI調整）
 │   ├── NodeEditor.ts          # メインエディタークラス
 │   └── types.ts               # エディター状態管理の型定義
 │
-├── nodes/                     # ノード定義ローダー
-│   └── NodeDefinitionLoader.ts # JSON定義の読み込み
+├── styles/                    # スタイルシート
+│   └── main.css
 │
-└── types/                     # 型定義（設定データ）
-    └── index.ts               # NodeDefinition, SocketDefinition等
+└── main.ts                    # エントリーポイント
 ```
 
 ## レイヤーの責務
@@ -76,8 +98,10 @@ src/
 技術的な実装詳細を担当します。
 
 - **リポジトリ実装**: データ永続化の実装（現在はインメモリ）
-- **レンダリング**: DOM操作とUI描画
-- **シェーダー生成**: WGSLシェーダーコードの生成
+- **レンダリング**: DOM操作とUI描画、WebGL/WebGPU実装
+- **シェーダー生成**: WGSL/GLSLシェーダーコードの生成
+- **ノード定義**: ノード定義ファイル（JSON）の読み込みと管理
+- **型定義**: 設定データの型定義（NodeDefinition, SocketDefinition等）
 
 ### プレゼンテーション層（editor/）
 
@@ -105,7 +129,7 @@ UIの調整とイベント処理を担当します。
 
 1. **単一責任の原則**: 各クラスは1つの責務のみを持ちます
 2. **依存性逆転の原則**: 抽象（インターフェース）に依存し、具象に依存しません
-3. **不変性**: 値オブジェクトとエンティティの重要な属性は不変です
+3. **不変性**: 値オブジェクトは不変です．エンティティはライフサイクルを持ち可変ですが，識別子(ID)については不変です
 4. **ドメインロジックの分離**: ビジネスロジックはUIや技術的詳細から分離されています
 
 ## 主要なコンポーネント

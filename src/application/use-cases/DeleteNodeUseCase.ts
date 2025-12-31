@@ -1,32 +1,40 @@
+import { Node } from '../../domain/entities/Node';
+import { Connection } from '../../domain/entities/Connection';
+import { NodeGraph } from '../../domain/entities/NodeGraph';
 import { NodeId } from '../../domain/value-objects/Id';
-import { INodeRepository } from '../../domain/repositories/INodeRepository';
-import { IConnectionRepository } from '../../domain/repositories/IConnectionRepository';
 
 /**
  * ノード削除ユースケース
  * 
- * ノードとその関連接続を削除します。
+ * ノード削除のドメインロジックを実行します。
+ * リポジトリへの永続化は行いません（アプリケーション層で実行）。
  */
 export class DeleteNodeUseCase {
-  constructor(
-    private nodeRepository: INodeRepository,
-    private connectionRepository: IConnectionRepository
-  ) {}
-
-  execute(nodeId: NodeId): void {
-    const node = this.nodeRepository.findById(nodeId);
+  execute(
+    nodeGraph: NodeGraph,
+    nodeId: NodeId
+  ): { nodeToDelete: Node; connectionsToDelete: Connection[] } {
+    // ノードを取得（NodeGraphから）
+    const node = nodeGraph.getNode(nodeId);
     if (!node) {
       throw new Error('Node not found');
     }
 
-    // 関連する接続を削除
-    const connections = this.connectionRepository.findByNodeId(nodeId);
-    for (const connection of connections) {
-      this.connectionRepository.delete(connection.id);
+    // 関連する接続を取得（NodeGraphから）
+    const relatedConnections = nodeGraph.getConnectionsByNodeId(nodeId);
+
+    // 関連する接続を削除（NodeGraphから）
+    for (const connection of relatedConnections) {
+      nodeGraph.removeConnection(connection.id);
     }
 
-    // ノードを削除
-    this.nodeRepository.delete(nodeId);
+    // ノードを削除（NodeGraphから）
+    nodeGraph.removeNode(nodeId);
+
+    return {
+      nodeToDelete: node,
+      connectionsToDelete: relatedConnections
+    };
   }
 }
 

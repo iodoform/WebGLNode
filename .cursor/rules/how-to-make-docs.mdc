@@ -1,0 +1,9 @@
+---
+description: "This rule provides how to make documents."
+alwaysApply: true
+---
+ドキュメントの下書きは次のように行います：
+
+1. コードコメントを抽出する
+2. README.md を分析する
+3. Markdown ドキュメントを生成する
