@@ -88,7 +88,7 @@ export class EventHandler {
       this.interactionController,
       this.nodeInteractionHandler,
       this.connectionInteractionHandler,
-      menuManager
+      this.menuManager
     );
 
     this.touchEventHandler = new TouchEventHandler(
@@ -99,8 +99,7 @@ export class EventHandler {
       this.interactionController,
       this.nodeInteractionHandler,
       this.connectionInteractionHandler,
-      menuManager,
-      getSocketAtPosition
+      this.menuManager
     );
 
     this.keyboardEventHandler = new KeyboardEventHandler(
@@ -108,7 +107,7 @@ export class EventHandler {
       this.stateManager,
       this.commandExecutor,
       this.connectionInteractionHandler,
-      menuManager
+      this.menuManager
     );
   }
 
