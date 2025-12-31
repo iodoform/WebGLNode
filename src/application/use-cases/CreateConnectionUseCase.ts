@@ -1,5 +1,4 @@
 import { Connection } from '../../domain/entities/Connection';
-import { Socket } from '../../domain/entities/Socket';
 import { NodeGraph } from '../../domain/entities/NodeGraph';
 import { SocketId } from '../../domain/value-objects/Id';
 

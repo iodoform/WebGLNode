@@ -1,9 +1,6 @@
 import { ConnectionId } from '../../domain/value-objects/Id';
-import { IConnectionRepository } from '../../domain/repositories/IConnectionRepository';
-
 import { Connection } from '../../domain/entities/Connection';
 import { NodeGraph } from '../../domain/entities/NodeGraph';
-import { ConnectionId } from '../../domain/value-objects/Id';
 
 /**
  * 接続削除ユースケース

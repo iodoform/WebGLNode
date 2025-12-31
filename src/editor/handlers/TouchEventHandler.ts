@@ -25,8 +25,10 @@ export class TouchEventHandler {
     private nodeInteractionHandler: NodeInteractionHandler,
     private connectionInteractionHandler: ConnectionInteractionHandler,
     private menuManager: IMenuManager,
-    private getSocketAtPosition: (x: number, y: number) => Socket | undefined
-  ) {}
+    getSocketAtPosition: (x: number, y: number) => Socket | undefined
+  ) {
+    // getSocketAtPositionはConnectionInteractionHandlerに渡されるため、ここでは保存しない
+  }
 
   /**
    * タッチイベントリスナーを設定

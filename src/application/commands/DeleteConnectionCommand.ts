@@ -1,4 +1,3 @@
-import { Connection } from '../../domain/entities/Connection';
 import { ICommand } from './ICommand';
 import { SerializedConnection } from '../../domain/services/NodeSerializer';
 import { commandDIContainer } from '../../infrastructure/di/CommandDIContainer';

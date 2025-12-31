@@ -12,7 +12,6 @@ import { NodeEditorService } from '../application/services/NodeEditorService';
 import { EditorStateManager } from './EditorStateManager';
 import { NodeRenderer } from '../infrastructure/rendering/NodeRenderer';
 import { ConnectionRenderer } from '../infrastructure/rendering/ConnectionRenderer';
-import { IShaderGenerator } from '../infrastructure/shader/IShaderGenerator';
 import { EditorEventBus, EditorEventType } from './EditorEventBus';
 
 /**
@@ -30,7 +29,6 @@ export class CommandExecutor {
     private stateManager: EditorStateManager,
     nodeRenderer: NodeRenderer,
     connectionRenderer: ConnectionRenderer,
-    private shaderGenerator: IShaderGenerator,
     private nodeContainer: HTMLElement,
     private eventBus: EditorEventBus
   ) {

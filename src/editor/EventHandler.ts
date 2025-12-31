@@ -39,7 +39,7 @@ export class EventHandler {
     private menuManager: IMenuManager,
     private commandExecutor: CommandExecutor,
     private eventBus: EditorEventBus,
-    private updateTransform: () => void
+    updateTransform: () => void
   ) {
     // コールバック関数を作成
     const updateNodePosition = (node: Node) => 
