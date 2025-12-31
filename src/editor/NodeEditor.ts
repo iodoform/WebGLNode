@@ -94,7 +94,6 @@ export class NodeEditor {
       this.stateManager,
       tempNodeRendererForCommand,
       tempConnectionRendererForCommand,
-      this.shaderGenerator,
       this.nodeContainer,
       this.eventBus
     );
